@@ -37,6 +37,8 @@ type EventHandler struct {
 
 	ErrorHandler func(err error)
 	PanicHandler func(err interface{})
+
+	closer chan<- struct{}
 }
 
 func NewEventHandler(s *State) *EventHandler {
@@ -58,7 +60,9 @@ type genericHandler struct {
 	filtered bool
 }
 
-func (h *EventHandler) Open(events <-chan interface{}) chan<- struct{} {
+// Open starts listening for events until the returned closer function is
+// called.
+func (h *EventHandler) Open(events <-chan interface{}) {
 	closer := make(chan struct{})
 
 	go func() {
@@ -77,10 +81,19 @@ func (h *EventHandler) Open(events <-chan interface{}) chan<- struct{} {
 			}
 		}
 	}()
-
-	return closer
 }
 
+func (h *EventHandler) Close() {
+	if h.closer != nil {
+		h.closer <- struct{}{}
+	}
+}
+
+// AddHandler adds a filtered handler, meaning a handler that is called unless
+// a middleware returns the Filtered error.
+//
+// The scheme of a handler func is func(*State, e) where e is either a pointer
+// to an event, *Base or interface{}.
 func (h *EventHandler) AddHandler(f interface{}) func() {
 	return h.addHandler(f, true)
 }

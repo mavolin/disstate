@@ -35,8 +35,6 @@ type State struct {
 	// unavailable when connecting to the gateway, i.e. they had Unavailable
 	// set to true during Ready.
 	unreadyGuilds *moreatomic.GuildIDSet
-
-	closer chan<- struct{}
 }
 
 // New creates a new state.
@@ -96,9 +94,7 @@ func (s *State) Open() error {
 func (s *State) Close() (err error) {
 	err = s.Gateway.Close()
 
-	if s.closer != nil {
-		s.closer <- struct{}{}
-	}
+	s.EventHandler.Close()
 
 	s.Call(&CloseEvent{
 		Base: NewBase(),
