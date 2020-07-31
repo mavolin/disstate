@@ -53,6 +53,7 @@ func NewWithIntents(token string, intents ...gateway.Intents) (*State, error) {
 	return NewFromSession(s, state.NewDefaultStore(nil)), nil
 }
 
+// NewWithStore creates a new State with a custom state.Store.
 func NewWithStore(token string, store state.Store) (*State, error) {
 	s, err := session.New(token)
 	if err != nil {
@@ -81,7 +82,7 @@ func NewFromSession(s *session.Session, store state.Store) (st *State) {
 
 // Open opens a connection to the gateway.
 func (s *State) Open() error {
-	s.closer = s.EventHandler.Open(s.Gateway.Events)
+	s.EventHandler.Open(s.Gateway.Events)
 
 	if err := s.Gateway.Open(); err != nil {
 		return errors.Wrap(err, "failed to start gateway")

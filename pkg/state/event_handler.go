@@ -11,15 +11,15 @@ import (
 )
 
 var (
-	// ErrNotAHandler gets returned if a handler given to one of the
-	// EventManager.HandleX methods is not a valid handler, i.e. following
-	// the form of func(State, e where e is either a pointer to an
-	// event or interface{}, or if the value is not a function at all.
+	// ErrNotAHandler gets returned if a handler given to
+	// EventManager.AddHandler methods is not a valid handler func, i.e. not
+	// following the form of func(*State, e) where e is either a pointer to an
+	// event, *Base or interface{}.
 	ErrNotAHandler = errors.New("the passed interface{} does not resemble a valid handler")
 	// ErrNotAMiddleware gets returned if a middleware given to
-	// EventManger.AddMiddleware is not a valid middleware, i.e. following the
-	// form of func(State, e where e is either a pointer to an event or
-	// interface{}, or if the value is not a function at all.
+	// EventManger.AddMiddleware is not a valid middleware func, i.e. not
+	// following the form of func(State, e) where e is either a pointer to an
+	// event, *Base or interface{}.
 	ErrNotAMiddleware = errors.New("the passed interface{} does not resemble a valid middleware")
 
 	// Filtered should be returned if a filter blocks an event.
@@ -41,6 +41,7 @@ type EventHandler struct {
 	closer chan<- struct{}
 }
 
+// NewEventHandler creates a new EventHandler.
 func NewEventHandler(s *State) *EventHandler {
 	return &EventHandler{
 		s:            s,
@@ -98,6 +99,11 @@ func (h *EventHandler) AddHandler(f interface{}) func() {
 	return h.addHandler(f, true)
 }
 
+// AddUnfilteredHandler adds a handler that is called, no matter if a
+// middleware signals filtering or not.
+//
+// The scheme of a handler func is func(*State, e) where e is either a pointer
+// to an event, *Base or interface{}.
 func (h *EventHandler) AddUnfilteredHandler(f interface{}) func() {
 	return h.addHandler(f, false)
 }
@@ -133,6 +139,14 @@ func (h *EventHandler) addHandler(f interface{}, filtered bool) func() {
 	}
 }
 
+// AddMiddleware adds a middleware.
+// It can either add information to the event or filter certain events using
+// the Filtered error.
+// Any other error will be handled via the error handler, but will not prevent
+// execution of the remaining middlewares/handler.
+//
+// The scheme of a middleware func is func(*State, e) where e is either a
+// pointer to an event, *Base or interface{}.
 func (h *EventHandler) AddMiddleware(f interface{}) {
 	ha, t := handlerFuncForHandler(f)
 	if ha == nil {
@@ -144,6 +158,7 @@ func (h *EventHandler) AddMiddleware(f interface{}) {
 	h.middlewaresMutex.Unlock()
 }
 
+// Call can be used to manually dispatch an event.
 func (h *EventHandler) Call(e interface{}) {
 	t := calcEventType(e)
 	if t == 0 {

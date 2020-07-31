@@ -8,6 +8,7 @@ type Base struct {
 	varsMut *sync.RWMutex
 }
 
+// NewBase creates a new Base.
 func NewBase() *Base {
 	return &Base{
 		vars:    make(map[string]interface{}),
