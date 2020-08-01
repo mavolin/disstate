@@ -8,6 +8,8 @@ type ReadyEvent struct {
 	*Base
 }
 
+func (e *ReadyEvent) getType() eventType { return eventTypeReady }
+
 type readyEventHandler func(s *State, e *ReadyEvent) error
 
 func (h readyEventHandler) handle(s *State, e interface{}) error {

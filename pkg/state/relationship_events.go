@@ -10,6 +10,8 @@ type RelationshipAddEvent struct {
 	*Base
 }
 
+func (e *RelationshipAddEvent) getType() eventType { return eventTypeRelationshipAdd }
+
 type relationshipAddEventHandler func(s *State, e *RelationshipAddEvent) error
 
 func (h relationshipAddEventHandler) handle(s *State, e interface{}) error {
@@ -27,6 +29,8 @@ type RelationshipRemoveEvent struct {
 	*gateway.RelationshipRemoveEvent
 	*Base
 }
+
+func (e *RelationshipRemoveEvent) getType() eventType { return eventTypeRelationshipRemove }
 
 type relationshipRemoveEventHandler func(s *State, e *RelationshipRemoveEvent) error
 

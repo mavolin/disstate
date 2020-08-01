@@ -16,6 +16,8 @@ type GuildCreateEvent struct {
 	*Base
 }
 
+func (e *GuildCreateEvent) getType() eventType { return eventTypeGuildCreate }
+
 type guildCreateEventHandler func(s *State, e *GuildCreateEvent) error
 
 func (h guildCreateEventHandler) handle(s *State, e interface{}) error {
@@ -35,6 +37,8 @@ func (h guildCreateEventHandler) handle(s *State, e interface{}) error {
 type GuildReadyEvent struct {
 	*GuildCreateEvent
 }
+
+func (e *GuildReadyEvent) getType() eventType { return eventTypeGuildReady }
 
 type guildReadyEventHandler func(s *State, e *GuildReadyEvent) error
 
@@ -57,6 +61,8 @@ type GuildAvailableEvent struct {
 	*GuildCreateEvent
 }
 
+func (e *GuildAvailableEvent) getType() eventType { return eventTypeGuildAvailable }
+
 type guildAvailableEventHandler func(s *State, e *GuildAvailableEvent) error
 
 func (h guildAvailableEventHandler) handle(s *State, e interface{}) error {
@@ -74,6 +80,8 @@ func (h guildAvailableEventHandler) handle(s *State, e interface{}) error {
 type GuildJoinEvent struct {
 	*GuildCreateEvent
 }
+
+func (e *GuildJoinEvent) getType() eventType { return eventTypeGuildJoin }
 
 type guildJoinEventHandler func(s *State, e *GuildJoinEvent) error
 
@@ -98,6 +106,8 @@ type GuildUpdateEvent struct {
 	Old *discord.Guild
 }
 
+func (e *GuildUpdateEvent) getType() eventType { return eventTypeGuildUpdate }
+
 type guildUpdateEventHandler func(s *State, e *GuildUpdateEvent) error
 
 func (h guildUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -121,6 +131,8 @@ type GuildDeleteEvent struct {
 	Old *discord.Guild
 }
 
+func (e *GuildDeleteEvent) getType() eventType { return eventTypeGuildDelete }
+
 type guildDeleteEventHandler func(s *State, e *GuildDeleteEvent) error
 
 func (h guildDeleteEventHandler) handle(s *State, e interface{}) error {
@@ -139,6 +151,8 @@ func (h guildDeleteEventHandler) handle(s *State, e interface{}) error {
 type GuildLeaveEvent struct {
 	*GuildDeleteEvent
 }
+
+func (e *GuildLeaveEvent) getType() eventType { return eventTypeGuildLeave }
 
 type guildLeaveEventHandler func(s *State, e *GuildLeaveEvent) error
 
@@ -159,6 +173,8 @@ type GuildUnavailableEvent struct {
 	*GuildDeleteEvent
 }
 
+func (e *GuildUnavailableEvent) getType() eventType { return eventTypeGuildUnavailable }
+
 type guildUnavailableEventHandler func(s *State, e *GuildUnavailableEvent) error
 
 func (h guildUnavailableEventHandler) handle(s *State, e interface{}) error {
@@ -177,6 +193,8 @@ type GuildBanAddEvent struct {
 	*Base
 }
 
+func (e *GuildBanAddEvent) getType() eventType { return eventTypeGuildBanAdd }
+
 type guildBanAddEventHandler func(s *State, e *GuildBanAddEvent) error
 
 func (h guildBanAddEventHandler) handle(s *State, e interface{}) error {
@@ -194,6 +212,8 @@ type GuildBanRemoveEvent struct {
 	*gateway.GuildBanRemoveEvent
 	*Base
 }
+
+func (e *GuildBanRemoveEvent) getType() eventType { return eventTypeGuildBanRemove }
 
 type guildBanRemoveEventHandler func(s *State, e *GuildBanRemoveEvent) error
 
@@ -215,6 +235,8 @@ type GuildEmojisUpdateEvent struct {
 	Old []discord.Emoji
 }
 
+func (e *GuildEmojisUpdateEvent) getType() eventType { return eventTypeGuildEmojisUpdate }
+
 type guildEmojisUpdateEventHandler func(s *State, e *GuildEmojisUpdateEvent) error
 
 func (h guildEmojisUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -233,6 +255,8 @@ type GuildIntegrationsUpdateEvent struct {
 	*Base
 }
 
+func (e *GuildIntegrationsUpdateEvent) getType() eventType { return eventTypeGuildIntegrationsUpdate }
+
 type guildIntegrationsUpdateEventHandler func(s *State, e *GuildIntegrationsUpdateEvent) error
 
 func (h guildIntegrationsUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -250,6 +274,8 @@ type GuildMemberAddEvent struct {
 	*gateway.GuildMemberAddEvent
 	*Base
 }
+
+func (e *GuildMemberAddEvent) getType() eventType { return eventTypeGuildMemberAdd }
 
 type guildMemberAddEventHandler func(s *State, e *GuildMemberAddEvent) error
 
@@ -271,6 +297,8 @@ type GuildMemberRemoveEvent struct {
 	Old *discord.Member
 }
 
+func (e *GuildMemberRemoveEvent) getType() eventType { return eventTypeGuildMemberRemove }
+
 type guildMemberRemoveEventHandler func(s *State, e *GuildMemberRemoveEvent) error
 
 func (h guildMemberRemoveEventHandler) handle(s *State, e interface{}) error {
@@ -291,6 +319,8 @@ type GuildMemberUpdateEvent struct {
 	Old *discord.Member
 }
 
+func (e *GuildMemberUpdateEvent) getType() eventType { return eventTypeGuildMemberUpdate }
+
 type guildMemberUpdateEventHandler func(s *State, e *GuildMemberUpdateEvent) error
 
 func (h guildMemberUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -309,6 +339,8 @@ type GuildMembersChunkEvent struct {
 	*Base
 }
 
+func (e *GuildMembersChunkEvent) getType() eventType { return eventTypeGuildMembersChunk }
+
 type guildMembersChunkEventHandler func(s *State, e *GuildMembersChunkEvent) error
 
 func (h guildMembersChunkEventHandler) handle(s *State, e interface{}) error {
@@ -326,6 +358,8 @@ type GuildRoleCreateEvent struct {
 	*gateway.GuildRoleCreateEvent
 	*Base
 }
+
+func (e *GuildRoleCreateEvent) getType() eventType { return eventTypeGuildRoleCreate }
 
 type guildRoleCreateEventHandler func(s *State, e *GuildRoleCreateEvent) error
 
@@ -347,6 +381,8 @@ type GuildRoleUpdateEvent struct {
 	Old *discord.Role
 }
 
+func (e *GuildRoleUpdateEvent) getType() eventType { return eventTypeGuildRoleUpdate }
+
 type guildRoleUpdateEventHandler func(s *State, e *GuildRoleUpdateEvent) error
 
 func (h guildRoleUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -366,6 +402,8 @@ type GuildRoleDeleteEvent struct {
 
 	Old *discord.Role
 }
+
+func (e *GuildRoleDeleteEvent) getType() eventType { return eventTypeGuildRoleDelete }
 
 type guildRoleDeleteEventHandler func(s *State, e *GuildRoleDeleteEvent) error
 

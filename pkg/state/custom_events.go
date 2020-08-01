@@ -7,6 +7,8 @@ type CloseEvent struct {
 	*Base
 }
 
+func (e *CloseEvent) getType() eventType { return eventTypeClose }
+
 type closeEventHandler func(s *State, e *CloseEvent) error
 
 func (h closeEventHandler) handle(s *State, e interface{}) error {

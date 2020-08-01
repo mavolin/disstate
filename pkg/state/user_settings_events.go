@@ -10,6 +10,8 @@ type UserGuildSettingsUpdateEvent struct {
 	*Base
 }
 
+func (e *UserGuildSettingsUpdateEvent) getType() eventType { return eventTypeUserGuildSettingsUpdate }
+
 type userGuildSettingsUpdateEventHandler func(s *State, e *UserGuildSettingsUpdateEvent) error
 
 func (h userGuildSettingsUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -28,6 +30,8 @@ type UserSettingsUpdateEvent struct {
 	*Base
 }
 
+func (e *UserSettingsUpdateEvent) getType() eventType { return eventTypeUserSettingsUpdate }
+
 type userSettingsUpdateEventHandler func(s *State, e *UserSettingsUpdateEvent) error
 
 func (h userSettingsUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -45,6 +49,8 @@ type UserNoteUpdateEvent struct {
 	*gateway.UserNoteUpdateEvent
 	*Base
 }
+
+func (e *UserNoteUpdateEvent) getType() eventType { return eventTypeUserNoteUpdate }
 
 type userNoteUpdateEventHandler func(s *State, e *UserNoteUpdateEvent) error
 
