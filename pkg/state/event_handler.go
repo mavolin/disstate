@@ -140,6 +140,38 @@ func (h *EventHandler) MustAddUnfilteredHandler(f interface{}) func() {
 	return r
 }
 
+// AutoAddHandlers adds all handler methods of the passed struct to the
+// EventHandler.
+func (h *EventHandler) AutoAddHandlers(scan interface{}) {
+	v := reflect.ValueOf(scan)
+
+	for i := 0; i < v.NumMethod(); i++ {
+		m := v.Method(i)
+
+		if m.CanInterface() {
+			// we try to add, AddHandler will abort if m is not a valid handler
+			// func
+			_, _ = h.AddHandler(m.Interface())
+		}
+	}
+}
+
+// AutoAddUnfilteredHandlers adds all handler methods of the passed struct as
+// unfiltered handlers to the EventHandler.
+func (h *EventHandler) AutoAddUnfilteredHandlers(scan interface{}) {
+	v := reflect.ValueOf(scan)
+
+	for i := 0; i < v.NumMethod(); i++ {
+		m := v.Method(i)
+
+		if m.CanInterface() {
+			// we try to add, AddHandler will abort if m is not a valid handler
+			// func
+			_, _ = h.AddUnfilteredHandler(m.Interface())
+		}
+	}
+}
+
 func (h *EventHandler) addHandler(f interface{}, filtered bool) (func(), error) {
 	ha, t := handlerFuncForHandler(f)
 	if ha == nil {
