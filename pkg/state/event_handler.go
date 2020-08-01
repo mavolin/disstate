@@ -95,7 +95,7 @@ func (h *EventHandler) Close() {
 //
 // The scheme of a handler func is func(*State, e) where e is either a pointer
 // to an event, *Base or interface{}.
-func (h *EventHandler) AddHandler(f interface{}) func() {
+func (h *EventHandler) AddHandler(f interface{}) (func(), error) {
 	return h.addHandler(f, true)
 }
 
@@ -104,14 +104,46 @@ func (h *EventHandler) AddHandler(f interface{}) func() {
 //
 // The scheme of a handler func is func(*State, e) where e is either a pointer
 // to an event, *Base or interface{}.
-func (h *EventHandler) AddUnfilteredHandler(f interface{}) func() {
+func (h *EventHandler) AddUnfilteredHandler(f interface{}) (func(), error) {
 	return h.addHandler(f, false)
 }
 
-func (h *EventHandler) addHandler(f interface{}, filtered bool) func() {
+// AddHandler adds a filtered handler, meaning a handler that is called unless
+// a middleware returns the Filtered error.
+// It will panic, if the passed interface does not resemble a valid handler
+// func.
+//
+// The scheme of a handler func is func(*State, e) where e is either a pointer
+// to an event, *Base or interface{}.
+func (h *EventHandler) MustAddHandler(f interface{}) func() {
+	r, err := h.addHandler(f, true)
+	if err != nil {
+		panic(err)
+	}
+
+	return r
+}
+
+// AddUnfilteredHandler adds a handler that is called, no matter if a
+// middleware signals filtering or not.
+// It will panic, if the passed interface does not resemble a valid handler
+// func.
+//
+// The scheme of a handler func is func(*State, e) where e is either a pointer
+// to an event, *Base or interface{}.
+func (h *EventHandler) MustAddUnfilteredHandler(f interface{}) func() {
+	r, err := h.addHandler(f, false)
+	if err != nil {
+		panic(err)
+	}
+
+	return r
+}
+
+func (h *EventHandler) addHandler(f interface{}, filtered bool) (func(), error) {
 	ha, t := handlerFuncForHandler(f)
 	if ha == nil {
-		panic(ErrNotAHandler)
+		return nil, ErrNotAHandler
 	}
 
 	gh := &genericHandler{
@@ -123,20 +155,24 @@ func (h *EventHandler) addHandler(f interface{}, filtered bool) func() {
 	h.handler[t] = append(h.handler[t], gh)
 	h.handlerMutex.Unlock()
 
+	var once sync.Once
+
 	return func() {
-		h.handlerMutex.Lock()
+		once.Do(func() {
+			h.handlerMutex.Lock()
 
-		handler := h.handler[t]
+			handler := h.handler[t]
 
-		for i, ha := range handler {
-			if ha == gh {
-				h.handler[t] = append(handler[:i], handler[i+1:]...)
-				break
+			for i, ha := range handler {
+				if ha == gh {
+					h.handler[t] = append(handler[:i], handler[i+1:]...)
+					break
+				}
 			}
-		}
 
-		h.handlerMutex.Unlock()
-	}
+			h.handlerMutex.Unlock()
+		})
+	}, nil
 }
 
 // AddMiddleware adds a middleware.
@@ -159,8 +195,9 @@ func (h *EventHandler) AddMiddleware(f interface{}) {
 }
 
 // Call can be used to manually dispatch an event.
-func (h *EventHandler) Call(e interface{}) {
-	t := calcEventType(e)
+// Note that the Base filed must be set, to proceed without a reflect panic.
+func (h *EventHandler) Call(e event) {
+	t := e.getType()
 	if t == 0 {
 		return
 	}

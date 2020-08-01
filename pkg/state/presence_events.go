@@ -15,6 +15,8 @@ type PresenceUpdateEvent struct {
 	Old *discord.Presence
 }
 
+func (e *PresenceUpdateEvent) getType() eventType { return eventTypePresenceUpdate }
+
 type presenceUpdateEventHandler func(s *State, e *PresenceUpdateEvent) error
 
 func (h presenceUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -32,6 +34,8 @@ type PresencesReplaceEvent struct {
 	*gateway.PresencesReplaceEvent
 	*Base
 }
+
+func (e *PresencesReplaceEvent) getType() eventType { return eventTypePresencesReplace }
 
 type presencesReplaceEventHandler func(s *State, e *PresencesReplaceEvent) error
 
@@ -52,6 +56,8 @@ type SessionsReplaceEvent struct {
 	*Base
 }
 
+func (e *SessionsReplaceEvent) getType() eventType { return eventTypeSessionsReplace }
+
 type sessionsReplaceEventHandler func(s *State, e *SessionsReplaceEvent) error
 
 func (h sessionsReplaceEventHandler) handle(s *State, e interface{}) error {
@@ -70,6 +76,8 @@ type TypingStartEvent struct {
 	*Base
 }
 
+func (e *TypingStartEvent) getType() eventType { return eventTypeTypingStart }
+
 type typingStartEventHandler func(s *State, e *TypingStartEvent) error
 
 func (h typingStartEventHandler) handle(s *State, e interface{}) error {
@@ -87,6 +95,8 @@ type UserUpdateEvent struct {
 	*gateway.UserUpdateEvent
 	*Base
 }
+
+func (e *UserUpdateEvent) getType() eventType { return eventTypeUserUpdate }
 
 type userUpdateEventHandler func(s *State, e *UserUpdateEvent) error
 

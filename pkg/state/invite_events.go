@@ -10,6 +10,8 @@ type InviteCreateEvent struct {
 	*Base
 }
 
+func (e *InviteCreateEvent) getType() eventType { return eventTypeInviteCreate }
+
 type inviteCreateEventHandler func(s *State, e *InviteCreateEvent) error
 
 func (h inviteCreateEventHandler) handle(s *State, e interface{}) error {
@@ -27,6 +29,8 @@ type InviteDeleteEvent struct {
 	*gateway.InviteDeleteEvent
 	*Base
 }
+
+func (e *InviteDeleteEvent) getType() eventType { return eventTypeInviteDelete }
 
 type inviteDeleteEventHandler func(s *State, e *InviteDeleteEvent) error
 

@@ -1,5 +1,9 @@
 package state
 
+type event interface {
+	getType() eventType
+}
+
 type handler interface {
 	handle(s *State, e interface{}) error
 }

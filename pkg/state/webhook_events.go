@@ -10,6 +10,8 @@ type WebhooksUpdateEvent struct {
 	*Base
 }
 
+func (e *WebhooksUpdateEvent) getType() eventType { return eventTypeWebhooksUpdate }
+
 type webhooksUpdateEventHandler func(s *State, e *WebhooksUpdateEvent) error
 
 func (h webhooksUpdateEventHandler) handle(s *State, e interface{}) error {

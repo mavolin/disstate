@@ -10,6 +10,8 @@ type VoiceStateUpdateEvent struct {
 	*Base
 }
 
+func (e *VoiceStateUpdateEvent) getType() eventType { return eventTypeVoiceStateUpdate }
+
 type voiceStateUpdateEventHandler func(s *State, e *VoiceStateUpdateEvent) error
 
 func (h voiceStateUpdateEventHandler) handle(s *State, e interface{}) error {
@@ -27,6 +29,8 @@ type VoiceServerUpdateEvent struct {
 	*gateway.VoiceServerUpdateEvent
 	*Base
 }
+
+func (e *VoiceServerUpdateEvent) getType() eventType { return eventTypeVoiceServerUpdate }
 
 type voiceServerUpdateEventHandler func(s *State, e *VoiceServerUpdateEvent) error
 

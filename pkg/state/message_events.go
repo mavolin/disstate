@@ -13,6 +13,8 @@ type MessageCreateEvent struct {
 	*Base
 }
 
+func (e *MessageCreateEvent) getType() eventType { return eventTypeMessageCreate }
+
 type messageCreateEventHandler func(s *State, e *MessageCreateEvent) error
 
 func (h messageCreateEventHandler) handle(s *State, e interface{}) error {
@@ -32,6 +34,8 @@ type MessageUpdateEvent struct {
 
 	Old *discord.Message
 }
+
+func (e *MessageUpdateEvent) getType() eventType { return eventTypeMessageUpdate }
 
 type messageUpdateEventHandler func(s *State, e *MessageUpdateEvent) error
 
@@ -53,6 +57,8 @@ type MessageDeleteEvent struct {
 	Old *discord.Message
 }
 
+func (e *MessageDeleteEvent) getType() eventType { return eventTypeMessageDelete }
+
 type messageDeleteEventHandler func(s *State, e *MessageDeleteEvent) error
 
 func (h messageDeleteEventHandler) handle(s *State, e interface{}) error {
@@ -73,6 +79,8 @@ type MessageDeleteBulkEvent struct {
 	Old []discord.Message
 }
 
+func (e *MessageDeleteBulkEvent) getType() eventType { return eventTypeMessageDeleteBulk }
+
 type messageDeleteBulkEventHandler func(s *State, e *MessageDeleteBulkEvent) error
 
 func (h messageDeleteBulkEventHandler) handle(s *State, e interface{}) error {
@@ -90,6 +98,8 @@ type MessageReactionAddEvent struct {
 	*gateway.MessageReactionAddEvent
 	*Base
 }
+
+func (e *MessageReactionAddEvent) getType() eventType { return eventTypeMessageReactionAdd }
 
 type messageReactionAddEventHandler func(s *State, e *MessageReactionAddEvent) error
 
@@ -109,6 +119,8 @@ type MessageReactionRemoveEvent struct {
 	*Base
 }
 
+func (e *MessageReactionRemoveEvent) getType() eventType { return eventTypeMessageReactionRemove }
+
 type messageReactionRemoveEventHandler func(s *State, e *MessageReactionRemoveEvent) error
 
 func (h messageReactionRemoveEventHandler) handle(s *State, e interface{}) error {
@@ -126,6 +138,8 @@ type MessageReactionRemoveAllEvent struct {
 	*gateway.MessageReactionRemoveAllEvent
 	*Base
 }
+
+func (e *MessageReactionRemoveAllEvent) getType() eventType { return eventTypeMessageReactionRemoveAll }
 
 type messageReactionRemoveAllEventHandler func(s *State, e *MessageReactionRemoveAllEvent) error
 
@@ -145,6 +159,10 @@ type MessageReactionRemoveEmojiEvent struct {
 	*Base
 }
 
+func (e *MessageReactionRemoveEmojiEvent) getType() eventType {
+	return eventTypeMessageReactionRemoveEmoji
+}
+
 type messageReactionRemoveEmojiEventHandler func(s *State, e *MessageReactionRemoveEmojiEvent) error
 
 func (h messageReactionRemoveEmojiEventHandler) handle(s *State, e interface{}) error {
@@ -162,6 +180,8 @@ type MessageAckEvent struct {
 	*gateway.MessageAckEvent
 	*Base
 }
+
+func (e *MessageAckEvent) getType() eventType { return eventTypeMessageAck }
 
 type messageAckEventHandler func(s *State, e *MessageAckEvent) error
 
