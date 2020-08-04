@@ -69,6 +69,7 @@ func NewFromSession(s *session.Session, store state.Store) (st *State) {
 	st = &State{
 		Session:           s,
 		Store:             store,
+		StateLog:          func(error) {},
 		fewMessages:       map[discord.ChannelID]struct{}{},
 		fewMutex:          new(sync.Mutex),
 		unavailableGuilds: moreatomic.NewGuildIDSet(),
