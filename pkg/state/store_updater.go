@@ -10,6 +10,13 @@ import (
 func (s *State) updateStore(e interface{}) {
 	switch e := e.(type) {
 	case *gateway.ReadyEvent:
+		// Reset the store before proceeding.
+		if resetter, ok := s.Store.(state.StoreResetter); ok {
+			if err := resetter.Reset(); err != nil {
+				s.stateErr(err, "Failed to reset state on READY")
+			}
+		}
+
 		s.Ready = e
 
 		// Handle presences
