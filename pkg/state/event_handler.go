@@ -635,18 +635,9 @@ func (h *EventHandler) genEvent(src interface{}) (interface{}, *Base, eventType)
 
 func (h *EventHandler) handleReady(e *ReadyEvent, filtered bool) {
 	for _, g := range e.Guilds {
-		// store this so we know when we need to dispatch a belated
+		// store this so we know when we need to dispatch the corresponding
 		// GuildReadyEvent
-		if g.Unavailable {
-			h.s.unreadyGuilds.Add(g.ID)
-		} else {
-			h.callHandlers(&GuildReadyEvent{
-				GuildCreateEvent: &GuildCreateEvent{
-					GuildCreateEvent: &g,
-					Base:             NewBase(),
-				},
-			}, e.Base, eventTypeGuildReady, filtered, false)
-		}
+		h.s.unreadyGuilds.Add(g.ID)
 	}
 }
 
@@ -657,8 +648,7 @@ func (h *EventHandler) handleGuildCreate(e *GuildCreateEvent, filtered bool) {
 			GuildCreateEvent: e,
 		}, e.Base, eventTypeGuildAvailable, filtered, false)
 
-		// the guild was already unavailable when connecting to the gateway
-		// we can dispatch a belated GuildReadyEvent
+		// the guild was announced in Ready and has now become available
 	} else if h.s.unreadyGuilds.Delete(e.ID) {
 		h.callHandlers(&GuildReadyEvent{
 			GuildCreateEvent: e,
