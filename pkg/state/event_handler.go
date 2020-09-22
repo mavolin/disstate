@@ -390,18 +390,21 @@ func (h *EventHandler) handleReady(e *ReadyEvent) {
 }
 
 func (h *EventHandler) handleGuildCreate(e *GuildCreateEvent) interface{} {
+	switch {
 	// this guild was unavailable, but has come back online
-	if h.s.unavailableGuilds.Delete(e.ID) {
+	case h.s.unavailableGuilds.Delete(e.ID):
 		return &GuildAvailableEvent{
 			GuildCreateEvent: e,
 		}
 
-		// the guild was announced in Ready and has now become available
-	} else if h.s.unreadyGuilds.Delete(e.ID) {
+	// the guild was announced in Ready and has now become available
+	case h.s.unreadyGuilds.Delete(e.ID):
 		return &GuildReadyEvent{
 			GuildCreateEvent: e,
 		}
-	} else { // we don't know this guild, hence we just joined it
+
+	// we don't know this guild, hence we just joined it
+	default:
 		return &GuildJoinEvent{
 			GuildCreateEvent: e,
 		}
@@ -417,12 +420,12 @@ func (h *EventHandler) handleGuildDelete(e *GuildDeleteEvent) interface{} {
 		return &GuildUnavailableEvent{
 			GuildDeleteEvent: e,
 		}
-	} else {
-		// it might have been unavailable before we left
-		h.s.unavailableGuilds.Delete(e.ID)
+	}
 
-		return &GuildLeaveEvent{
-			GuildDeleteEvent: e,
-		}
+	// it might have been unavailable before we left
+	h.s.unavailableGuilds.Delete(e.ID)
+
+	return &GuildLeaveEvent{
+		GuildDeleteEvent: e,
 	}
 }

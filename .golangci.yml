@@ -47,3 +47,20 @@ issues:
         - gosec
         - goconst
         - funlen
+    - path: ^pkg/state/utils.go$
+      linters:
+        - funlen
+        - gocognit
+        - gocyclo
+      text: genEvent
+    - path: ^pkg/state/store_updater.go$
+      linters:
+        - funlen
+        - gocognit
+        - gocyclo
+      text: updateStore
+    - path: ^pkg/state/event_handler.go$
+      linters:
+        - golint
+        - stylecheck
+      text: error var Filtered should have name of the form ErrFoo
