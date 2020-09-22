@@ -5,15 +5,24 @@ import "sync"
 // Base is the base of all events.
 type Base struct {
 	vars    map[string]interface{}
-	varsMut *sync.RWMutex
+	varsMut sync.RWMutex
 }
 
 // NewBase creates a new Base.
 func NewBase() *Base {
 	return &Base{
-		vars:    make(map[string]interface{}),
-		varsMut: new(sync.RWMutex),
+		vars: make(map[string]interface{}),
 	}
+}
+
+func (b *Base) copy() *Base {
+	cp := make(map[string]interface{}, len(b.vars))
+
+	for k, v := range b.vars {
+		cp[k] = v
+	}
+
+	return &Base{vars: cp}
 }
 
 // Set stores the passed element under the given key.
