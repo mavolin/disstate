@@ -5,8 +5,6 @@ import (
 	"github.com/diamondburned/arikawa/gateway"
 )
 
-// ================================ Message Create ================================
-
 // https://discord.com/developers/docs/topics/gateway#message-create
 type MessageCreateEvent struct {
 	*gateway.MessageCreateEvent

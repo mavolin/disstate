@@ -130,13 +130,14 @@ func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (fu
 		mv := reflect.ValueOf(m)
 		mt := mv.Type()
 
-		if mt == interfaceType {
+		switch mt {
+		case interfaceType:
 			gh.interfaceMiddlewares = append(gh.interfaceMiddlewares, mv)
-		} else if mt == baseType {
+		case baseType:
 			gh.baseMiddlewares = append(gh.baseMiddlewares, mv)
-		} else if mt == ft {
+		case ft:
 			gh.typedMiddlewares = append(gh.typedMiddlewares, mv)
-		} else {
+		default:
 			return nil, ErrInvalidMiddleware
 		}
 	}
