@@ -197,9 +197,7 @@ func (s *State) MemberColor(guildID discord.GuildID, userID discord.UserID) (dis
 	return discord.MemberColor(*g, *m), nil
 }
 
-func (s *State) Permissions(
-	channelID discord.ChannelID, userID discord.UserID) (discord.Permissions, error) {
-
+func (s *State) Permissions(channelID discord.ChannelID, userID discord.UserID) (discord.Permissions, error) {
 	ch, err := s.Channel(channelID)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get channel")
@@ -323,9 +321,7 @@ func (s *State) PrivateChannels() ([]discord.Channel, error) {
 	return c, nil
 }
 
-func (s *State) Emoji(
-	guildID discord.GuildID, emojiID discord.EmojiID) (*discord.Emoji, error) {
-
+func (s *State) Emoji(guildID discord.GuildID, emojiID discord.EmojiID) (*discord.Emoji, error) {
 	e, err := s.Store.Emoji(guildID, emojiID)
 	if err == nil {
 		return e, nil
@@ -427,9 +423,7 @@ func (s *State) Members(guildID discord.GuildID) ([]discord.Member, error) {
 	})
 }
 
-func (s *State) Message(
-	channelID discord.ChannelID, messageID discord.MessageID) (*discord.Message, error) {
-
+func (s *State) Message(channelID discord.ChannelID, messageID discord.MessageID) (*discord.Message, error) {
 	m, err := s.Store.Message(channelID, messageID)
 	if err == nil {
 		return m, nil
@@ -533,9 +527,7 @@ func (s *State) Messages(channelID discord.ChannelID) ([]discord.Message, error)
 
 // Presence checks the state for user presences. If no guildID is given, it will
 // look for the presence in all guilds.
-func (s *State) Presence(
-	guildID discord.GuildID, userID discord.UserID) (*discord.Presence, error) {
-
+func (s *State) Presence(guildID discord.GuildID, userID discord.UserID) (*discord.Presence, error) {
 	p, err := s.Store.Presence(guildID, userID)
 	if err == nil {
 		return p, nil
@@ -617,9 +609,7 @@ func (s *State) fetchGuild(id discord.GuildID) (g *discord.Guild, err error) {
 	return
 }
 
-func (s *State) fetchMember(
-	guildID discord.GuildID, userID discord.UserID) (m *discord.Member, err error) {
-
+func (s *State) fetchMember(guildID discord.GuildID, userID discord.UserID) (m *discord.Member, err error) {
 	m, err = s.Session.Member(guildID, userID)
 	if err == nil {
 		err = s.Store.MemberSet(guildID, *m)

@@ -4,36 +4,40 @@ import (
 	"errors"
 	"reflect"
 	"sync"
-	"sync/atomic"
-
-	"github.com/diamondburned/arikawa/discord"
-	"github.com/diamondburned/arikawa/gateway"
 )
 
 var (
-	// ErrNotAHandler gets returned if a handler given to
-	// EventManager.AddHandler methods is not a valid handler func, i.e. not
-	// following the form of func(*State, e) where e is either a pointer to an
-	// event, *Base or interface{}.
-	ErrNotAHandler = errors.New("the passed interface{} does not resemble a valid handler")
-	// ErrNotAMiddleware gets returned if a middleware given to
-	// EventManger.AddMiddleware is not a valid middleware func, i.e. not
-	// following the form of func(State, e) where e is either a pointer to an
-	// event, *Base or interface{}.
-	ErrNotAMiddleware = errors.New("the passed interface{} does not resemble a valid middleware")
+	// ErrInvalidHandler gets returned if a handler given to
+	// EventManager.AddHandler or EventManager.MustAddHandler is not a valid
+	// handlers func, i.e. not following the form of func(*State, e) where e is
+	// either a pointer to an event, *Base or interface{}.
+	ErrInvalidHandler = errors.New("the passed interface{} does not resemble a valid handlers")
+	// ErrInvalidMiddleware gets returned if a middleware given to
+	// EventManger.AddHandler or EventManager.MustAddHandler has not the same
+	// type as its handler.
+	//
+	// Additionally, it is returned by AddGlobalMiddleware and
+	// MustAddGlobalMiddleware if the middleware func is invalid.
+	ErrInvalidMiddleware = errors.New("the passed middleware does not match the type of the handlers")
 
 	// Filtered should be returned if a filter blocks an event.
 	Filtered = errors.New("filtered")
 )
 
+var (
+	interfaceType = reflect.TypeOf(func(*State, interface{}) error { return nil })
+	baseType      = reflect.TypeOf(func(*State, *Base) error { return nil })
+)
+
 type EventHandler struct {
-	s *State
+	s  *State
+	sv reflect.Value
 
-	handler      map[eventType][]*genericHandler
-	handlerMutex sync.RWMutex
+	handlers      map[reflect.Type][]*genericHandler
+	handlersMutex sync.RWMutex
 
-	middlewares      map[eventType][]handler
-	middlewaresMutex sync.RWMutex
+	globalMiddlewares      map[reflect.Type][]reflect.Value
+	globalMiddlewaresMutex sync.RWMutex
 
 	ErrorHandler func(err error)
 	PanicHandler func(err interface{})
@@ -44,21 +48,23 @@ type EventHandler struct {
 // NewEventHandler creates a new EventHandler.
 func NewEventHandler(s *State) *EventHandler {
 	return &EventHandler{
-		s:            s,
-		handler:      make(map[eventType][]*genericHandler),
-		middlewares:  make(map[eventType][]handler),
-		ErrorHandler: func(error) {},
-		PanicHandler: func(interface{}) {},
+		s:                 s,
+		sv:                reflect.ValueOf(s),
+		handlers:          make(map[reflect.Type][]*genericHandler),
+		globalMiddlewares: make(map[reflect.Type][]reflect.Value),
+		ErrorHandler:      func(error) {},
+		PanicHandler:      func(interface{}) {},
 	}
 }
 
 // genericHandler wraps an event handler.
 type genericHandler struct {
-	// handler is the underlying handler
-	handler handler
-	// filtered specifies whether this event is filter, i.e. it will not be
-	// fired if a filter blocks it.
-	filtered bool
+	handler reflect.Value
+
+	// middlewares are the middlewares for the handler.
+	interfaceMiddlewares []reflect.Value
+	baseMiddlewares      []reflect.Value
+	typedMiddlewares     []reflect.Value
 }
 
 // Open starts listening for events until the returned closer function is
@@ -71,14 +77,14 @@ func (h *EventHandler) Open(events <-chan interface{}) {
 			select {
 			case <-closer:
 				return
-			case e := <-events:
-				de, b, t := h.genEvent(e)
+			case gatewayEvent := <-events:
+				e := h.genEvent(gatewayEvent)
 				if e == nil {
 					break
 				}
 
-				h.s.updateStore(e)
-				h.call(de, b, t)
+				h.s.updateStore(gatewayEvent)
+				go h.Call(e)
 			}
 		}
 	}()
@@ -90,601 +96,336 @@ func (h *EventHandler) Close() {
 	}
 }
 
-// AddHandler adds a filtered handler, meaning a handler that is called unless
-// a middleware returns the Filtered error.
+var (
+	stateType = reflect.TypeOf(new(State))
+	errorType = reflect.TypeOf(func(error) {}).In(0)
+)
+
+// AddHandler adds a handlers with the passed globalMiddlewares to the event handlers.
+//
+// Middlewares must be of the same type as the handlers or must be an
+// interface{} or Base handlers.
 //
 // The scheme of a handler func is func(*State, e) where e is either a pointer
 // to an event, *Base or interface{}.
-func (h *EventHandler) AddHandler(f interface{}) (func(), error) {
-	return h.addHandler(f, true)
-}
+// Optionally, a handler may return an error.
+func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (func(), error) {
+	fv := reflect.ValueOf(f)
+	ft := fv.Type()
 
-// AddUnfilteredHandler adds a handler that is called, no matter if a
-// middleware signals filtering or not.
-//
-// The scheme of a handler func is func(*State, e) where e is either a pointer
-// to an event, *Base or interface{}.
-func (h *EventHandler) AddUnfilteredHandler(f interface{}) (func(), error) {
-	return h.addHandler(f, false)
-}
-
-// AddHandler adds a filtered handler, meaning a handler that is called unless
-// a middleware returns the Filtered error.
-// It will panic, if the passed interface does not resemble a valid handler
-// func.
-//
-// The scheme of a handler func is func(*State, e) where e is either a pointer
-// to an event, *Base or interface{}.
-func (h *EventHandler) MustAddHandler(f interface{}) func() {
-	r, err := h.addHandler(f, true)
-	if err != nil {
-		panic(err)
-	}
-
-	return r
-}
-
-// AddUnfilteredHandler adds a handler that is called, no matter if a
-// middleware signals filtering or not.
-// It will panic, if the passed interface does not resemble a valid handler
-// func.
-//
-// The scheme of a handler func is func(*State, e) where e is either a pointer
-// to an event, *Base or interface{}.
-func (h *EventHandler) MustAddUnfilteredHandler(f interface{}) func() {
-	r, err := h.addHandler(f, false)
-	if err != nil {
-		panic(err)
-	}
-
-	return r
-}
-
-// AutoAddHandlers adds all handler methods of the passed struct to the
-// EventHandler.
-func (h *EventHandler) AutoAddHandlers(scan interface{}) {
-	v := reflect.ValueOf(scan)
-
-	for i := 0; i < v.NumMethod(); i++ {
-		m := v.Method(i)
-
-		if m.CanInterface() {
-			// we try to add, AddHandler will abort if m is not a valid handler
-			// func
-			_, _ = h.AddHandler(m.Interface())
-		}
-	}
-}
-
-// AutoAddUnfilteredHandlers adds all handler methods of the passed struct as
-// unfiltered handlers to the EventHandler.
-func (h *EventHandler) AutoAddUnfilteredHandlers(scan interface{}) {
-	v := reflect.ValueOf(scan)
-
-	for i := 0; i < v.NumMethod(); i++ {
-		m := v.Method(i)
-
-		if m.CanInterface() {
-			// we try to add, AddHandler will abort if m is not a valid handler
-			// func
-			_, _ = h.AddUnfilteredHandler(m.Interface())
-		}
-	}
-}
-
-func (h *EventHandler) addHandler(f interface{}, filtered bool) (func(), error) {
-	ha, t := handlerFuncForHandler(f)
-	if ha == nil {
-		return nil, ErrNotAHandler
+	// we expect two input params, first must be state
+	if ft.NumIn() != 2 || ft.In(0) != stateType {
+		return nil, ErrInvalidHandler
+		// we expect either no return or an error return
+	} else if (ft.NumOut() == 1 && ft.Out(1) != errorType) || ft.NumOut() != 0 {
+		return nil, ErrInvalidHandler
 	}
 
 	gh := &genericHandler{
-		handler:  ha,
-		filtered: filtered,
+		handler:          fv,
+		typedMiddlewares: make([]reflect.Value, 0, len(middlewares)),
 	}
 
-	h.handlerMutex.Lock()
-	h.handler[t] = append(h.handler[t], gh)
-	h.handlerMutex.Unlock()
+	for _, m := range middlewares {
+		mv := reflect.ValueOf(m)
+		mt := mv.Type()
+
+		switch mt {
+		case interfaceType:
+			gh.interfaceMiddlewares = append(gh.interfaceMiddlewares, mv)
+		case baseType:
+			gh.baseMiddlewares = append(gh.baseMiddlewares, mv)
+		case ft:
+			gh.typedMiddlewares = append(gh.typedMiddlewares, mv)
+		default:
+			return nil, ErrInvalidMiddleware
+		}
+	}
+
+	et := ft.In(1)
+
+	h.handlersMutex.Lock()
+	h.handlers[et] = append(h.handlers[et], gh)
+	h.handlersMutex.Unlock()
 
 	var once sync.Once
 
 	return func() {
 		once.Do(func() {
-			h.handlerMutex.Lock()
+			h.handlersMutex.Lock()
 
-			handler := h.handler[t]
+			handler := h.handlers[ft]
 
 			for i, ha := range handler {
 				if ha == gh {
-					h.handler[t] = append(handler[:i], handler[i+1:]...)
+					h.handlers[ft] = append(handler[:i], handler[i+1:]...)
 					break
 				}
 			}
 
-			h.handlerMutex.Unlock()
+			h.handlersMutex.Unlock()
 		})
 	}, nil
 }
 
-// AddMiddleware adds a middleware.
-// It can either add information to the event or filter certain events using
-// the Filtered error.
-// Any other error will be handled via the error handler, but will not prevent
-// execution of the remaining middlewares/handler.
-//
-// The scheme of a middleware func is func(*State, e) where e is either a
-// pointer to an event, *Base or interface{}.
-func (h *EventHandler) AddMiddleware(f interface{}) {
-	ha, t := handlerFuncForHandler(f)
-	if ha == nil {
-		panic(ErrNotAMiddleware)
+// MustAddHandler is the same as AddHandler, but panics if AddHandler returns
+// an error.
+func (h *EventHandler) MustAddHandler(f interface{}, middlewares ...interface{}) func() {
+	r, err := h.AddHandler(f, middlewares...)
+	if err != nil {
+		panic(err)
 	}
 
-	h.middlewaresMutex.Lock()
-	h.middlewares[t] = append(h.middlewares[t], ha)
-	h.middlewaresMutex.Unlock()
+	return r
 }
 
-// Call can be used to manually dispatch an event.
-// Note that the Base filed must be set, to proceed without a reflect panic.
-func (h *EventHandler) Call(e event) {
-	t := e.getType()
-	if t == 0 {
+// AutoAddHandlers adds all handlers methods of the passed struct to the
+// EventHandler.
+// scan must be a pointer to a struct.
+func (h *EventHandler) AutoAddHandlers(scan interface{}, middlewares ...interface{}) {
+	v := reflect.ValueOf(scan)
+
+	if v.Kind() != reflect.Ptr {
 		return
 	}
 
-	b := reflect.ValueOf(e).Elem().FieldByName("Base").Interface().(*Base)
+	for i := 0; i < v.NumMethod(); i++ {
+		m := v.Method(i)
 
-	h.call(e, b, t)
+		if m.CanInterface() {
+			// we try to add, AddHandler will abort if m is not a valid handlers
+			// func
+			_, _ = h.AddHandler(m.Interface(), middlewares...)
+		}
+	}
 }
 
-func (h *EventHandler) call(e interface{}, b *Base, t eventType) {
-	filtered := h.applyMiddlewares(e, b, t)
+// AddGlobalMiddleware adds the passed middleware as a global middleware.
+//
+// The scheme of a middleware func is func(*State, e) where e is either a
+// pointer to an event, *Base or interface{}.
+// Optionally, a middleware may return an error.
+func (h *EventHandler) AddGlobalMiddleware(f interface{}) error {
+	fv := reflect.ValueOf(f)
+	ft := fv.Type()
+
+	// we expect two input params, first must be state
+	if ft.NumIn() != 2 || ft.In(0) != stateType {
+		return ErrInvalidMiddleware
+		// we expect either no return or an error return
+	} else if (ft.NumOut() == 1 && ft.Out(1) != errorType) || ft.NumOut() != 0 {
+		return ErrInvalidMiddleware
+	}
+
+	et := ft.In(1)
+
+	h.globalMiddlewaresMutex.Lock()
+	h.globalMiddlewares[et] = append(h.globalMiddlewares[et], fv)
+	h.globalMiddlewaresMutex.Unlock()
+
+	return nil
+}
+
+// MustAddGlobalMiddleware is the same as AddGlobalMiddleware but panics if
+// AddGlobalMiddleware returns an error.
+func (h *EventHandler) MustAddGlobalMiddleware(f interface{}) {
+	err := h.AddGlobalMiddleware(f)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Call can be used to manually dispatch an event.
+// For this to succeed, e must be a pointer to an event, and it's Base field
+// must be set.
+func (h *EventHandler) Call(e interface{}) {
+	ev := reflect.ValueOf(e)
+	et := reflect.TypeOf(e)
+
+	abort := h.callGlobalMiddlewares(ev, et)
+
+	ev = ev.Elem() // from now functions only take elem
+
+	direct := false
 
 	switch e := e.(type) {
 	case *ReadyEvent:
-		h.callHandlers(e, b, t, filtered, false)
-		h.handleReady(e, filtered)
+		h.handleReady(e)
 	case *GuildCreateEvent:
-		h.callHandlers(e, b, t, filtered, true)
-		h.handleGuildCreate(e, filtered)
+		if specificEvent := h.handleGuildCreate(e); !abort {
+			sev := reflect.ValueOf(specificEvent)
+			set := reflect.TypeOf(specificEvent)
+			h.call(sev, set, false)
+		}
+
+		direct = true
 	case *GuildDeleteEvent:
-		h.callHandlers(e, b, t, filtered, true)
-		h.handleGuildDelete(e, filtered)
-	default:
-		h.callHandlers(e, b, t, filtered, false)
+		if specificEvent := h.handleGuildDelete(e); !abort {
+			sev := reflect.ValueOf(specificEvent)
+			set := reflect.TypeOf(specificEvent)
+			h.call(sev, set, false)
+		}
+
+		direct = true
+	}
+
+	if !abort {
+		h.call(ev, et, direct)
 	}
 }
 
-func (h *EventHandler) applyMiddlewares(e interface{}, b *Base, t eventType) (filtered bool) {
-	h.middlewaresMutex.RLock()
-
-	var wg sync.WaitGroup
-	var aFiltered uint32
-
-	wg.Add(len(h.middlewares[eventTypeAll]) +
-		len(h.middlewares[eventTypeBase]) +
-		len(h.middlewares[t]))
-
-	h.startMiddlewares(e, eventTypeAll, &wg, &aFiltered)
-	h.startMiddlewares(b, eventTypeBase, &wg, &aFiltered)
-	h.startMiddlewares(e, t, &wg, &aFiltered)
-
-	h.middlewaresMutex.RUnlock()
-
-	wg.Wait()
-
-	filtered = aFiltered == 1 // goroutines finished, no need for atomic ops anymore
-
-	return
-}
-
-func (h *EventHandler) callHandlers(e interface{}, b *Base, t eventType, filtered, direct bool) {
-	h.handlerMutex.RLock()
-
-	var wg sync.WaitGroup
+// call calls the handlers for the passed typed using the event wrapped in ev.
+// ev must not be a pointer, however, et is expected to be the pointerized type
+// of ev.
+//
+// direct specifies, whether or not interface and Base handlers should be
+// called for the event as well.
+func (h *EventHandler) call(ev reflect.Value, et reflect.Type, direct bool) {
+	h.handlersMutex.RLock()
+	defer h.handlersMutex.RUnlock()
 
 	if !direct {
-		h.startHandlers(e, eventTypeAll, filtered, &wg)
-		h.startHandlers(b, eventTypeBase, filtered, &wg)
+		h.callHandlers(ev, et, h.handlers[interfaceType])
+		h.callHandlers(ev, et, h.handlers[baseType])
 	}
 
-	h.startHandlers(e, t, filtered, &wg)
-
-	h.handlerMutex.RUnlock()
-
-	wg.Wait()
+	h.callHandlers(ev, et, h.handlers[et])
 }
 
-func (h *EventHandler) startHandlers(e interface{}, t eventType, filtered bool, wg *sync.WaitGroup) {
-	for _, handler := range h.handler[t] {
-		if !filtered || !handler.filtered {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-				defer func() {
-					if rec := recover(); rec != nil {
-						h.PanicHandler(rec)
-					}
-				}()
-
-				if err := handler.handler.handle(h.s, e); err != nil {
-					h.ErrorHandler(err)
-				}
-			}()
-		}
-	}
-}
-
-func (h *EventHandler) startMiddlewares(e interface{}, t eventType, wg *sync.WaitGroup, aFiltered *uint32) {
-	for _, mw := range h.middlewares[t] {
-		go func(handler handler) {
-			defer wg.Done()
+// callHandlers calls the passed slice of handlers using the passed event ev.
+// ev must not be a pointer, however, et is expected to be the pointerized type
+// of ev.
+func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*genericHandler) {
+	for _, handler := range gh {
+		go func(ha *genericHandler) {
 			defer func() {
-				if r := recover(); r != nil {
-					h.PanicHandler(r)
+				if rec := recover(); rec != nil {
+					h.PanicHandler(rec)
 				}
 			}()
 
-			err := handler.handle(h.s, e)
-			if err == Filtered {
-				atomic.StoreUint32(aFiltered, 1)
-			} else {
-				h.ErrorHandler(err)
+			cp := copyEvent(ev, et)
+
+			if h.callMiddlewares(cp, ha.interfaceMiddlewares, ha.baseMiddlewares, ha.typedMiddlewares) {
 				return
 			}
-		}(mw)
+
+			result := ha.handler.Call([]reflect.Value{h.sv, cp})
+			h.handleResult(result)
+		}(handler)
 	}
 }
 
-func (h *EventHandler) genEvent(src interface{}) (interface{}, *Base, eventType) {
-	base := NewBase()
+// callGlobalMiddlewares calls the global middlewares using the passed event
+// ev.
+// ev must be a pointer to the event, and et must be ev's type.
+func (h *EventHandler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) bool {
+	h.globalMiddlewaresMutex.RLock()
+	defer h.globalMiddlewaresMutex.RUnlock()
 
-	switch src := src.(type) {
-	// ---------------- Ready Event ----------------
-	case *gateway.ReadyEvent:
-		return &ReadyEvent{
-			ReadyEvent: src,
-			Base:       base,
-		}, base, eventTypeReady
-
-	// ---------------- Channel Events ----------------
-	case *gateway.ChannelCreateEvent:
-		return &ChannelCreateEvent{
-			ChannelCreateEvent: src,
-			Base:               base,
-		}, base, eventTypeChannelCreate
-	case *gateway.ChannelUpdateEvent:
-		c, _ := h.s.Store.Channel(src.ID)
-
-		return &ChannelUpdateEvent{
-			ChannelUpdateEvent: src,
-			Base:               base,
-			Old:                c,
-		}, base, eventTypeChannelUpdate
-	case *gateway.ChannelDeleteEvent:
-		c, _ := h.s.Store.Channel(src.ID)
-
-		return &ChannelDeleteEvent{
-			ChannelDeleteEvent: src,
-			Base:               base,
-			Old:                c,
-		}, base, eventTypeChannelDelete
-	case *gateway.ChannelPinsUpdateEvent:
-		return &ChannelPinsUpdateEvent{
-			ChannelPinsUpdateEvent: src,
-			Base:                   base,
-		}, base, eventTypeChannelPinsUpdate
-	case *gateway.ChannelUnreadUpdateEvent:
-		return &ChannelUnreadUpdateEvent{
-			ChannelUnreadUpdateEvent: src,
-			Base:                     base,
-		}, base, eventTypeChannelUnreadUpdate
-
-	// ---------------- Guild Events ----------------
-	case *gateway.GuildCreateEvent:
-		return &GuildCreateEvent{
-			GuildCreateEvent: src,
-			Base:             base,
-		}, base, eventTypeGuildCreate
-	case *gateway.GuildUpdateEvent:
-		g, _ := h.s.Store.Guild(src.ID)
-
-		return &GuildUpdateEvent{
-			GuildUpdateEvent: src,
-			Base:             base,
-			Old:              g,
-		}, base, eventTypeGuildUpdate
-	case *gateway.GuildDeleteEvent:
-		g, _ := h.s.Store.Guild(src.ID)
-
-		return &GuildDeleteEvent{
-			GuildDeleteEvent: src,
-			Base:             base,
-			Old:              g,
-		}, base, eventTypeGuildDelete
-	case *gateway.GuildBanAddEvent:
-		return &GuildBanAddEvent{
-			GuildBanAddEvent: src,
-			Base:             base,
-		}, base, eventTypeGuildBanAdd
-	case *gateway.GuildBanRemoveEvent:
-		return &GuildBanRemoveEvent{
-			GuildBanRemoveEvent: src,
-			Base:                base,
-		}, base, eventTypeGuildBanRemove
-	case *gateway.GuildEmojisUpdateEvent:
-		e, _ := h.s.Store.Emojis(src.GuildID)
-
-		return &GuildEmojisUpdateEvent{
-			GuildEmojisUpdateEvent: src,
-			Base:                   base,
-			Old:                    e,
-		}, base, eventTypeGuildEmojisUpdate
-	case *gateway.GuildIntegrationsUpdateEvent:
-		return &GuildIntegrationsUpdateEvent{
-			GuildIntegrationsUpdateEvent: src,
-			Base:                         base,
-		}, base, eventTypeGuildIntegrationsUpdate
-	case *gateway.GuildMemberAddEvent:
-		return &GuildMemberAddEvent{
-			GuildMemberAddEvent: src,
-			Base:                base,
-		}, base, eventTypeGuildMemberAdd
-	case *gateway.GuildMemberRemoveEvent:
-		m, _ := h.s.Store.Member(src.GuildID, src.User.ID)
-
-		return &GuildMemberRemoveEvent{
-			GuildMemberRemoveEvent: src,
-			Base:                   base,
-			Old:                    m,
-		}, base, eventTypeGuildMemberRemove
-	case *gateway.GuildMemberUpdateEvent:
-		m, _ := h.s.Store.Member(src.GuildID, src.User.ID)
-
-		return &GuildMemberUpdateEvent{
-			GuildMemberUpdateEvent: src,
-			Base:                   base,
-			Old:                    m,
-		}, base, eventTypeGuildMemberUpdate
-	case *gateway.GuildMembersChunkEvent:
-		return &GuildMembersChunkEvent{
-			GuildMembersChunkEvent: src,
-			Base:                   base,
-		}, base, eventTypeGuildMembersChunk
-	case *gateway.GuildRoleCreateEvent:
-		return &GuildRoleCreateEvent{
-			GuildRoleCreateEvent: src,
-			Base:                 base,
-		}, base, eventTypeGuildRoleCreate
-	case *gateway.GuildRoleUpdateEvent:
-		r, _ := h.s.Store.Role(src.GuildID, src.Role.ID)
-
-		return &GuildRoleUpdateEvent{
-			GuildRoleUpdateEvent: src,
-			Base:                 base,
-			Old:                  r,
-		}, base, eventTypeGuildRoleUpdate
-	case *gateway.GuildRoleDeleteEvent:
-		r, _ := h.s.Store.Role(src.GuildID, src.RoleID)
-
-		return &GuildRoleDeleteEvent{
-			GuildRoleDeleteEvent: src,
-			Base:                 base,
-			Old:                  r,
-		}, base, eventTypeGuildRoleDelete
-
-	// ---------------- Invite Events ----------------
-	case *gateway.InviteCreateEvent:
-		return &InviteCreateEvent{
-			InviteCreateEvent: src,
-			Base:              base,
-		}, base, eventTypeInviteCreate
-	case *gateway.InviteDeleteEvent:
-		return &InviteDeleteEvent{
-			InviteDeleteEvent: src,
-			Base:              base,
-		}, base, eventTypeInviteDelete
-
-	// ---------------- Message Events ----------------
-	case *gateway.MessageCreateEvent:
-		return &MessageCreateEvent{
-			MessageCreateEvent: src,
-			Base:               base,
-		}, base, eventTypeMessageCreate
-	case *gateway.MessageUpdateEvent:
-		m, _ := h.s.Store.Message(src.ChannelID, src.ID)
-
-		return &MessageUpdateEvent{
-			MessageUpdateEvent: src,
-			Base:               base,
-			Old:                m,
-		}, base, eventTypeMessageUpdate
-	case *gateway.MessageDeleteEvent:
-		m, _ := h.s.Store.Message(src.ChannelID, src.ID)
-
-		return &MessageDeleteEvent{
-			MessageDeleteEvent: src,
-			Base:               base,
-			Old:                m,
-		}, base, eventTypeMessageDelete
-	case *gateway.MessageDeleteBulkEvent:
-		msgs := make([]discord.Message, 0, len(src.IDs))
-
-		for _, id := range src.IDs {
-			m, err := h.s.Store.Message(src.ChannelID, id)
-			if err == nil {
-				msgs = append(msgs, *m)
-			}
+	for _, m := range h.globalMiddlewares[interfaceType] {
+		result := m.Call([]reflect.Value{h.sv, ev})
+		if h.handleResult(result) {
+			return true
 		}
-
-		return &MessageDeleteBulkEvent{
-			MessageDeleteBulkEvent: src,
-			Base:                   base,
-			Old:                    msgs,
-		}, base, eventTypeMessageDeleteBulk
-	case *gateway.MessageReactionAddEvent:
-		return &MessageReactionAddEvent{
-			MessageReactionAddEvent: src,
-			Base:                    base,
-		}, base, eventTypeMessageReactionAdd
-	case *gateway.MessageReactionRemoveEvent:
-		return &MessageReactionRemoveEvent{
-			MessageReactionRemoveEvent: src,
-			Base:                       base,
-		}, base, eventTypeMessageReactionRemove
-	case *gateway.MessageReactionRemoveAllEvent:
-		return &MessageReactionRemoveAllEvent{
-			MessageReactionRemoveAllEvent: src,
-			Base:                          base,
-		}, base, eventTypeMessageReactionRemoveAll
-	case *gateway.MessageReactionRemoveEmoji:
-		return &MessageReactionRemoveEmojiEvent{
-			MessageReactionRemoveEmoji: src,
-			Base:                       base,
-		}, base, eventTypeMessageReactionRemoveEmoji
-	case *gateway.MessageAckEvent:
-		return &MessageAckEvent{
-			MessageAckEvent: src,
-			Base:            base,
-		}, base, eventTypeMessageAck
-
-	// ---------------- Presence Events ----------------
-	case *gateway.PresenceUpdateEvent:
-		p, _ := h.s.Store.Presence(src.GuildID, src.User.ID)
-
-		return &PresenceUpdateEvent{
-			PresenceUpdateEvent: src,
-			Base:                base,
-			Old:                 p,
-		}, base, eventTypePresenceUpdate
-	case *gateway.PresencesReplaceEvent:
-		return &PresencesReplaceEvent{
-			PresencesReplaceEvent: src,
-			Base:                  base,
-		}, base, eventTypePresencesReplace
-	case *gateway.SessionsReplaceEvent:
-		return &SessionsReplaceEvent{
-			SessionsReplaceEvent: src,
-			Base:                 base,
-		}, base, eventTypeSessionsReplace
-	case *gateway.TypingStartEvent:
-		return &TypingStartEvent{
-			TypingStartEvent: src,
-			Base:             base,
-		}, base, eventTypeTypingStart
-	case *gateway.UserUpdateEvent:
-		return &UserUpdateEvent{
-			UserUpdateEvent: src,
-			Base:            base,
-		}, base, eventTypeUserUpdate
-
-	// ---------------- Relationship Events ----------------
-	case *gateway.RelationshipAddEvent:
-		return &RelationshipAddEvent{
-			RelationshipAddEvent: src,
-			Base:                 base,
-		}, base, eventTypeRelationshipAdd
-	case *gateway.RelationshipRemoveEvent:
-		return &RelationshipRemoveEvent{
-			RelationshipRemoveEvent: src,
-			Base:                    base,
-		}, base, eventTypeRelationshipRemove
-
-	// ---------------- User Settings Events ----------------
-	case *gateway.UserGuildSettingsUpdateEvent:
-		return &UserGuildSettingsUpdateEvent{
-			UserGuildSettingsUpdateEvent: src,
-			Base:                         base,
-		}, base, eventTypeUserGuildSettingsUpdate
-	case *gateway.UserSettingsUpdateEvent:
-		return &UserSettingsUpdateEvent{
-			UserSettingsUpdateEvent: src,
-			Base:                    base,
-		}, base, eventTypeUserSettingsUpdate
-	case *gateway.UserNoteUpdateEvent:
-		return &UserNoteUpdateEvent{
-			UserNoteUpdateEvent: src,
-			Base:                base,
-		}, base, eventTypeUserNoteUpdate
-
-	// ---------------- Voice Events ----------------
-	case *gateway.VoiceStateUpdateEvent:
-		return &VoiceStateUpdateEvent{
-			VoiceStateUpdateEvent: src,
-			Base:                  base,
-		}, base, eventTypeVoiceStateUpdate
-	case *gateway.VoiceServerUpdateEvent:
-		return &VoiceServerUpdateEvent{
-			VoiceServerUpdateEvent: src,
-			Base:                   base,
-		}, base, eventTypeVoiceServerUpdate
-
-	// ---------------- Webhook Events ----------------
-	case *gateway.WebhooksUpdateEvent:
-		return &WebhooksUpdateEvent{
-			WebhooksUpdateEvent: src,
-			Base:                base,
-		}, base, eventTypeWebhooksUpdate
 	}
 
-	return nil, nil, 0
+	base := ev.Elem().FieldByName("Base")
+
+	for _, m := range h.globalMiddlewares[baseType] {
+		result := m.Call([]reflect.Value{h.sv, base})
+		if h.handleResult(result) {
+			return true
+		}
+	}
+
+	for _, m := range h.globalMiddlewares[et] {
+		result := m.Call([]reflect.Value{h.sv, ev})
+		if h.handleResult(result) {
+			return true
+		}
+	}
+
+	return false
 }
 
-func (h *EventHandler) handleReady(e *ReadyEvent, filtered bool) {
+// callMiddlewares calls the passed slices of middlewares in the slices order.
+// ev must not be a pointer, however, et is expected to be the pointerized type
+// of ev.
+func (h *EventHandler) callMiddlewares(
+	ev reflect.Value, interfaceMiddlewares, baseMiddlewares, typedMiddlewares []reflect.Value,
+) bool {
+	for _, m := range interfaceMiddlewares {
+		result := m.Call([]reflect.Value{h.sv, ev})
+		if h.handleResult(result) {
+			return true
+		}
+	}
+
+	base := ev.Elem().FieldByName("Base")
+
+	for _, m := range baseMiddlewares {
+		result := m.Call([]reflect.Value{h.sv, base})
+		if h.handleResult(result) {
+			return true
+		}
+	}
+
+	for _, m := range typedMiddlewares {
+		result := m.Call([]reflect.Value{h.sv, ev})
+		if h.handleResult(result) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (h *EventHandler) handleReady(e *ReadyEvent) {
 	for _, g := range e.Guilds {
-		// store this so we know when we need to dispatch a belated
+		// store this so we know when we need to dispatch the corresponding
 		// GuildReadyEvent
-		if g.Unavailable {
-			h.s.unreadyGuilds.Add(g.ID)
-		} else {
-			h.callHandlers(&GuildReadyEvent{
-				GuildCreateEvent: &GuildCreateEvent{
-					GuildCreateEvent: &g,
-					Base:             NewBase(),
-				},
-			}, e.Base, eventTypeGuildReady, filtered, false)
+		h.s.unreadyGuilds.Add(g.ID)
+	}
+}
+
+func (h *EventHandler) handleGuildCreate(e *GuildCreateEvent) interface{} {
+	switch {
+	// this guild was unavailable, but has come back online
+	case h.s.unavailableGuilds.Delete(e.ID):
+		return &GuildAvailableEvent{
+			GuildCreateEvent: e,
+		}
+
+	// the guild was announced in Ready and has now become available
+	case h.s.unreadyGuilds.Delete(e.ID):
+		return &GuildReadyEvent{
+			GuildCreateEvent: e,
+		}
+
+	// we don't know this guild, hence we just joined it
+	default:
+		return &GuildJoinEvent{
+			GuildCreateEvent: e,
 		}
 	}
 }
 
-func (h *EventHandler) handleGuildCreate(e *GuildCreateEvent, filtered bool) {
-	// this guild was unavailable, but has come back online
-	if h.s.unavailableGuilds.Delete(e.ID) {
-		h.callHandlers(&GuildAvailableEvent{
-			GuildCreateEvent: e,
-		}, e.Base, eventTypeGuildAvailable, filtered, false)
-
-		// the guild was already unavailable when connecting to the gateway
-		// we can dispatch a belated GuildReadyEvent
-	} else if h.s.unreadyGuilds.Delete(e.ID) {
-		h.callHandlers(&GuildReadyEvent{
-			GuildCreateEvent: e,
-		}, e.Base, eventTypeGuildReady, filtered, false)
-	} else { // we don't know this guild, hence we just joined it
-		h.callHandlers(&GuildJoinEvent{
-			GuildCreateEvent: e,
-		}, e.Base, eventTypeGuildJoin, filtered, false)
-	}
-}
-
-func (h *EventHandler) handleGuildDelete(e *GuildDeleteEvent, filtered bool) {
+func (h *EventHandler) handleGuildDelete(e *GuildDeleteEvent) interface{} {
 	// store this so we can later dispatch a GuildAvailableEvent, once the
 	// guild becomes available again.
 	if e.Unavailable {
 		h.s.unavailableGuilds.Add(e.ID)
 
-		h.callHandlers(&GuildUnavailableEvent{
+		return &GuildUnavailableEvent{
 			GuildDeleteEvent: e,
-		}, e.Base, eventTypeGuildUnavailable, filtered, false)
-	} else {
-		// it might have been unavailable before we left
-		h.s.unavailableGuilds.Delete(e.ID)
+		}
+	}
 
-		h.callHandlers(&GuildLeaveEvent{
-			GuildDeleteEvent: e,
-		}, e.Base, eventTypeGuildLeave, filtered, false)
+	// it might have been unavailable before we left
+	h.s.unavailableGuilds.Delete(e.ID)
+
+	return &GuildLeaveEvent{
+		GuildDeleteEvent: e,
 	}
 }

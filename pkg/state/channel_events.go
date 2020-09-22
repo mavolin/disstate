@@ -5,27 +5,11 @@ import (
 	"github.com/diamondburned/arikawa/gateway"
 )
 
-// ================================ Channel Create ================================
-
 // https://discord.com/developers/docs/topics/gateway#channel-create
 type ChannelCreateEvent struct {
 	*gateway.ChannelCreateEvent
 	*Base
 }
-
-func (e *ChannelCreateEvent) getType() eventType { return eventTypeChannelCreate }
-
-type channelCreateEventHandler func(s *State, e *ChannelCreateEvent) error
-
-func (h channelCreateEventHandler) handle(s *State, e interface{}) error {
-	if e, ok := e.(*ChannelCreateEvent); ok {
-		return h(s, e)
-	}
-
-	return nil
-}
-
-// ================================ Channel Update ================================
 
 // https://discord.com/developers/docs/topics/gateway#channel-update
 type ChannelUpdateEvent struct {
@@ -35,20 +19,6 @@ type ChannelUpdateEvent struct {
 	Old *discord.Channel
 }
 
-func (e *ChannelUpdateEvent) getType() eventType { return eventTypeChannelUpdate }
-
-type channelUpdateEventHandler func(s *State, e *ChannelUpdateEvent) error
-
-func (h channelUpdateEventHandler) handle(s *State, e interface{}) error {
-	if e, ok := e.(*ChannelUpdateEvent); ok {
-		return h(s, e)
-	}
-
-	return nil
-}
-
-// ================================ Channel Delete ================================
-
 // https://discord.com/developers/docs/topics/gateway#channel-delete
 type ChannelDeleteEvent struct {
 	*gateway.ChannelDeleteEvent
@@ -57,53 +27,13 @@ type ChannelDeleteEvent struct {
 	Old *discord.Channel
 }
 
-func (e *ChannelDeleteEvent) getType() eventType { return eventTypeChannelDelete }
-
-type channelDeleteEventHandler func(s *State, e *ChannelDeleteEvent) error
-
-func (h channelDeleteEventHandler) handle(s *State, e interface{}) error {
-	if e, ok := e.(*ChannelDeleteEvent); ok {
-		return h(s, e)
-	}
-
-	return nil
-}
-
-// ================================ Channel Pins ================================
-
 // https://discord.com/developers/docs/topics/gateway#channel-pins-update
 type ChannelPinsUpdateEvent struct {
 	*gateway.ChannelPinsUpdateEvent
 	*Base
 }
 
-func (e *ChannelPinsUpdateEvent) getType() eventType { return eventTypeChannelPinsUpdate }
-
-type channelPinsUpdateEventHandler func(s *State, e *ChannelPinsUpdateEvent) error
-
-func (h channelPinsUpdateEventHandler) handle(s *State, e interface{}) error {
-	if e, ok := e.(*ChannelPinsUpdateEvent); ok {
-		return h(s, e)
-	}
-
-	return nil
-}
-
-// ================================ Channel Unread Update ================================
-
 type ChannelUnreadUpdateEvent struct {
 	*gateway.ChannelUnreadUpdateEvent
 	*Base
-}
-
-func (e *ChannelUnreadUpdateEvent) getType() eventType { return eventTypeChannelUnreadUpdate }
-
-type channelUnreadUpdateEventHandler func(s *State, e *ChannelUnreadUpdateEvent) error
-
-func (h channelUnreadUpdateEventHandler) handle(s *State, e interface{}) error {
-	if e, ok := e.(*ChannelUnreadUpdateEvent); ok {
-		return h(s, e)
-	}
-
-	return nil
 }
