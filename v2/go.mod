@@ -1,4 +1,4 @@
-module github.com/mavolin/disstate
+module github.com/mavolin/disstate/v2
 
 go 1.13
 

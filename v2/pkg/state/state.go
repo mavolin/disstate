@@ -10,7 +10,7 @@ import (
 	"github.com/diamondburned/arikawa/state"
 	"github.com/pkg/errors"
 
-	"github.com/mavolin/disstate/internal/moreatomic"
+	"github.com/mavolin/disstate/v2/internal/moreatomic"
 )
 
 type State struct {

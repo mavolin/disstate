@@ -4,14 +4,15 @@ on: [pull_request]
 
 jobs:
   review:
-    name: reviewdog
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v1
         with:
           path: ./go/src/github.com/${{ github.repository }}
-      - name: golangci-lint
+      - run: cd v2/
+      - name: Lint Project
         uses: reviewdog/action-golangci-lint@v1
         with:
           reporter: github-pr-review
