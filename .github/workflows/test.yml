@@ -8,9 +8,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
-      - name: Change Directory to v2
-        run: cd v2/
       - name: Setup Go
         uses: actions/setup-go@v2
       - name: Run Tests
+        working-directory: ./v2
         run: go test -race ./...
