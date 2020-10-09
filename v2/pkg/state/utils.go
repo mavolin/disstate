@@ -319,6 +319,10 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 	return nil
 }
 
+// copyEvent copies the event stored in the passed reflect.Value with the
+// passed reflect.Type.
+// v must not be a pointer however, t is expected to be the pointerized type
+// of v.
 func copyEvent(v reflect.Value, t reflect.Type) reflect.Value {
 	cp := reflect.New(t.Elem())
 	cp = cp.Elem()
