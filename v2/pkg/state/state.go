@@ -37,13 +37,16 @@ type State struct {
 	unreadyGuilds *moreatomic.GuildIDSet
 }
 
-// New creates a new state.
+// New creates a new State using the passed token.
+// If creating a bot session, the token must start with 'Bot '.
 func New(token string) (*State, error) {
 	return NewWithStore(token, state.NewDefaultStore(nil))
 }
 
-// NewWithIntents creates a new state with the given gateway intents. For more
-// information, refer to gateway.Intents.
+// NewWithIntents creates a new State with the given gateway intents using the
+// passed token.
+// If creating a bot session, the token must start with 'Bot '.
+// For more information, refer to gateway.Intents.
 func NewWithIntents(token string, intents ...gateway.Intents) (*State, error) {
 	s, err := session.NewWithIntents(token, intents...)
 	if err != nil {
