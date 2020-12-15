@@ -1,7 +1,6 @@
 package state
 
 import (
-	"github.com/diamondburned/arikawa/v2/discord"
 	"github.com/diamondburned/arikawa/v2/gateway"
 )
 
@@ -10,7 +9,7 @@ type PresenceUpdateEvent struct {
 	*gateway.PresenceUpdateEvent
 	*Base
 
-	Old *discord.Presence
+	Old *gateway.Presence
 }
 
 // undocumented

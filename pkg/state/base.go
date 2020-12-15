@@ -10,9 +10,7 @@ type Base struct {
 
 // NewBase creates a new Base.
 func NewBase() *Base {
-	return &Base{
-		vars: make(map[string]interface{}),
-	}
+	return &Base{vars: make(map[string]interface{})}
 }
 
 func (b *Base) copy() *Base {

@@ -55,7 +55,7 @@ type MessageReactionRemoveAllEvent struct {
 
 // https://discord.com/developers/docs/topics/gateway#message-reaction-remove-emoji
 type MessageReactionRemoveEmojiEvent struct {
-	*gateway.MessageReactionRemoveEmoji
+	*gateway.MessageReactionRemoveEmojiEvent
 	*Base
 }
 
