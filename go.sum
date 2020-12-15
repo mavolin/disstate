@@ -11,6 +11,8 @@ github.com/gorilla/websocket v1.4.2 h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0U
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/mavolin/dismock/v2 v2.0.0-20201214171210-340d2b2b16ad h1:vROQ2lc6p80/nCBpM/8ZpNyJzWCQYbII3sYGt3Z8mVo=
 github.com/mavolin/dismock/v2 v2.0.0-20201214171210-340d2b2b16ad/go.mod h1:EeoVD+DI6D1/EytVbmb+hHZctGqcLGjoYtGrcZxOJew=
+github.com/mavolin/dismock/v2 v2.0.0-20201215165643-dc1c2e57a55d h1:RJgb3fcM/fuMbPMNfVmgixEz2HMBFoNw6FdkgSz0neo=
+github.com/mavolin/dismock/v2 v2.0.0-20201215165643-dc1c2e57a55d/go.mod h1:k8PNvjEJhEkjcNixhCvI+LdNY/vDTLJlXe0Dw46AtCM=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
