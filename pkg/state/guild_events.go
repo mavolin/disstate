@@ -59,17 +59,17 @@ type GuildDeleteEvent struct {
 	Old *discord.Guild
 }
 
-// GuildLeaveEvent is a situation-specific GuildDeleteEvent event.
-// It gets fired when the user/bot leaves guild, gets kicked/banned from it, or
-// the owner deletes it.
-type GuildLeaveEvent struct {
-	*GuildDeleteEvent
-}
-
 // GuildUnavailableEvent is a situation-specific GuildDeleteEvent event.
 // It gets fired if the guild becomes unavailable, e.g. through a discord
 // outage.
 type GuildUnavailableEvent struct {
+	*GuildDeleteEvent
+}
+
+// GuildLeaveEvent is a situation-specific GuildDeleteEvent event.
+// It gets fired when the user/bot leaves guild, gets kicked/banned from it, or
+// the owner deletes it.
+type GuildLeaveEvent struct {
 	*GuildDeleteEvent
 }
 

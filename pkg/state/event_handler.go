@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 	"sync"
+
+	"github.com/diamondburned/arikawa/v2/gateway"
 )
 
 var (
@@ -21,7 +23,7 @@ var (
 	ErrInvalidMiddleware = errors.New("the passed middleware does not match the type of the handler")
 
 	// Filtered should be returned if a filter blocks an event.
-	Filtered = errors.New("filtered")
+	Filtered = errors.New("filtered") //nolint:golint,stylecheck
 )
 
 var (
@@ -120,7 +122,32 @@ var (
 	errorType = reflect.TypeOf((error)(nil))
 )
 
-// AddHandler adds a handlers with the passed globalMiddlewares to the event handlers.
+// DeriveIntents derives the intents based on the event handlers and global
+// middlewares that were added.
+// Interface and Base handlers will not be taken into account.
+//
+// Note that this does not reflect the intents needed to enable caching for
+// API calls made anywhere in code.
+func (h *EventHandler) DeriveIntents() (i gateway.Intents) {
+	h.globalMiddlewaresMutex.RLock()
+
+	for t := range h.globalMiddlewares {
+		i |= eventIntents[t]
+	}
+
+	h.globalMiddlewaresMutex.RUnlock()
+	h.handlersMutex.RLock()
+
+	for t := range h.handlers {
+		i |= eventIntents[t]
+	}
+
+	h.handlersMutex.RUnlock()
+	return
+}
+
+// AddHandler adds a handlers with the passed middlewares to the event
+// handlers.
 //
 // Middlewares must be of the same type as the handlers or must be an
 // interface{} or Base handlers.
@@ -403,11 +430,12 @@ func (h *EventHandler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) 
 
 		var in2 reflect.Value
 
-		if typ == et {
+		switch typ {
+		case et:
 			in2 = ev
-		} else if typ == baseType {
+		case baseType:
 			in2 = ev.Elem().FieldByName("Base")
-		} else {
+		default:
 			continue // invalid, skip
 		}
 
