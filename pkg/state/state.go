@@ -4,13 +4,15 @@ import (
 	"context"
 	"sync"
 
-	"github.com/diamondburned/arikawa/discord"
-	"github.com/diamondburned/arikawa/gateway"
-	"github.com/diamondburned/arikawa/session"
-	"github.com/diamondburned/arikawa/state"
+	"github.com/diamondburned/arikawa/v2/discord"
+	"github.com/diamondburned/arikawa/v2/gateway"
+	"github.com/diamondburned/arikawa/v2/session"
+	"github.com/diamondburned/arikawa/v2/state"
+	"github.com/diamondburned/arikawa/v2/state/store"
+	"github.com/diamondburned/arikawa/v2/state/store/defaultstore"
 	"github.com/pkg/errors"
 
-	"github.com/mavolin/disstate/v2/internal/moreatomic"
+	"github.com/mavolin/disstate/v3/internal/moreatomic"
 )
 
 type State struct {
@@ -39,7 +41,7 @@ type State struct {
 // New creates a new State using the passed token.
 // If creating a bot session, the token must start with 'Bot '.
 func New(token string) (*State, error) {
-	return NewWithStore(token, state.NewDefaultStore(nil))
+	return NewWithCabinet(token, defaultstore.New())
 }
 
 // NewWithIntents creates a new State with the given gateway intents using the
@@ -52,23 +54,23 @@ func NewWithIntents(token string, intents ...gateway.Intents) (*State, error) {
 		return nil, err
 	}
 
-	return NewFromSession(s, state.NewDefaultStore(nil)), nil
+	return NewFromSession(s, defaultstore.New()), nil
 }
 
-// NewWithStore creates a new State with a custom state.Store.
-func NewWithStore(token string, store state.Store) (*State, error) {
+// NewWithCabinet creates a new State with a custom state.Store.
+func NewWithCabinet(token string, cabinet store.Cabinet) (*State, error) {
 	s, err := session.New(token)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewFromSession(s, store), nil
+	return NewFromSession(s, cabinet), nil
 }
 
 // NewFromSession creates a new *State from the passed Session.
 // The Session may not be opened.
-func NewFromSession(s *session.Session, store state.Store) (st *State) {
-	src, _ := state.NewFromSession(s, store) // doc guarantees no error
+func NewFromSession(s *session.Session, cabinet store.Cabinet) (st *State) {
+	src, _ := state.NewFromSession(s, cabinet) // doc guarantees no error
 
 	st = &State{
 		State:             src,

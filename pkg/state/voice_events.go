@@ -1,6 +1,6 @@
 package state
 
-import "github.com/diamondburned/arikawa/gateway"
+import "github.com/diamondburned/arikawa/v2/gateway"
 
 // https://discord.com/developers/docs/topics/gateway#voice-state-update
 type VoiceStateUpdateEvent struct {
