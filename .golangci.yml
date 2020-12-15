@@ -1,66 +1,79 @@
 linters:
   disable-all: true
   enable:
-    - govet
-    - errcheck
-    - staticcheck
-    - unused
-    - gosimple
-    - structcheck
-    - varcheck
-    - ineffassign
-    - deadcode
-    - typecheck
+    - asciicheck
     - bodyclose
-    - golint
-    - stylecheck
-    - gosec
-    - interfacer
-    - unconvert
-    - dupl
-    - goconst
-    - gocyclo
-    - gocognit
-    - gofmt
-    - goimports
-    - maligned
-    - depguard
-    - misspell
-    - lll
-    - unparam
+    - deadcode
     - dogsled
+    - dupl
+    - errcheck
+    - errorlint
+    - exhaustive
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocognit
+    - gocritic
+    - gocyclo
+    - gofmt
+    - gofumpt
+    - goimports
+    - golint
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - maligned
+    - misspell
     - nakedret
     - prealloc
-    - gocritic
-    - gochecknoinits
-    - funlen
+    - rowserrcheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unconvert
+    - unused
+    - varcheck
     - whitespace
+
+linters-settings:
+  funlen:
+    lines: 80
+    statements: 55
+  gocognit:
+    min-complexity: 37
 
 issues:
   exclude-rules:
-    - path: _test\.go$
+    # prevent errors on //noinspection tags
+    - linters:
+        - gocritic
+        - gofumpt
+      source: "^\\s*//noinspection(?:[^\n]+)?$"
+    # prevent errors on type assertions with field access
+    - linters:
+        - errorlint
+      source: \w\.\(\*?\w+\)\.\w+
+    - linters:
+        - lll
+      source: //(?:nolint|go|goland)
+    # io.EOF and sql.ErrNoRows should, by doc, never be wrapped
+    - linters:
+        - errorlint
+      source: "\\w+\\s*==\\s*(io.EOF|sql.ErrNoRows)"
+    - path: (?:_test|test_util)\.go$
       linters:
-        - gocyclo
-        - gocognit
-        - errcheck
+        - bodyclose
         - dupl
-        - gosec
+        - errcheck
+        - errorlint
+        - funlen
+        - gocognit
         - goconst
-        - funlen
-    - path: ^pkg/state/utils.go$
-      linters:
-        - funlen
-        - gocognit
         - gocyclo
-      text: genEvent
-    - path: ^pkg/state/store_updater.go$
-      linters:
-        - funlen
-        - gocognit
-        - gocyclo
-      text: updateStore
-    - path: ^pkg/state/event_handler.go$
-      linters:
-        - golint
-        - stylecheck
-      text: error var Filtered should have name of the form ErrFoo
+        - gosec
+        - unparam
