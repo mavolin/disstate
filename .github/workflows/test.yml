@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   test:
-    name: Test
+    name: Go test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -11,5 +11,4 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
       - name: Run Tests
-        working-directory: ./v2
         run: go test -race ./...
