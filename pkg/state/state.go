@@ -19,10 +19,6 @@ type State struct {
 	*state.State
 	*EventHandler
 
-	Ready *gateway.ReadyEvent
-
-	StateLog func(error)
-
 	// List of channels with few messages, so it doesn't bother hitting the API
 	// again.
 	fewMessages map[discord.ChannelID]struct{}
@@ -70,11 +66,8 @@ func NewWithCabinet(token string, cabinet store.Cabinet) (*State, error) {
 // NewFromSession creates a new *State from the passed Session.
 // The Session may not be opened.
 func NewFromSession(s *session.Session, cabinet store.Cabinet) (st *State) {
-	src, _ := state.NewFromSession(s, cabinet) // doc guarantees no error
-
 	st = &State{
-		State:             src,
-		StateLog:          func(error) {},
+		State:             state.NewFromSession(s, cabinet),
 		fewMessages:       map[discord.ChannelID]struct{}{},
 		fewMutex:          new(sync.Mutex),
 		unavailableGuilds: moreatomic.NewGuildIDSet(),
@@ -91,7 +84,6 @@ func NewFromSession(s *session.Session, cabinet store.Cabinet) (st *State) {
 func NewFromState(s *state.State) (st *State) {
 	st = &State{
 		State:             s,
-		StateLog:          func(error) {},
 		fewMessages:       map[discord.ChannelID]struct{}{},
 		fewMutex:          new(sync.Mutex),
 		unavailableGuilds: moreatomic.NewGuildIDSet(),
@@ -120,10 +112,7 @@ func (s *State) Close() (err error) {
 
 	s.EventHandler.Close()
 
-	s.Call(&CloseEvent{
-		Base: NewBase(),
-	})
-
+	s.Call(&CloseEvent{Base: NewBase()})
 	return
 }
 
@@ -135,24 +124,4 @@ func (s *State) WithContext(ctx context.Context) *State {
 	copied.Client = copied.Client.WithContext(ctx)
 
 	return &copied
-}
-
-func (s *State) AuthorDisplayName(message *gateway.MessageCreateEvent) string {
-	if !message.GuildID.IsValid() {
-		return message.Author.Username
-	}
-
-	if message.Member != nil {
-		if message.Member.Nick != "" {
-			return message.Member.Nick
-		}
-		return message.Author.Username
-	}
-
-	n, err := s.MemberDisplayName(message.GuildID, message.Author.ID)
-	if err != nil {
-		return message.Author.Username
-	}
-
-	return n
 }

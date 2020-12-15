@@ -43,7 +43,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Base:               base,
 		}
 	case *gateway.ChannelUpdateEvent:
-		c, _ := h.s.Store.Channel(src.ID)
+		c, _ := h.s.Cabinet.Channel(src.ID)
 
 		return &ChannelUpdateEvent{
 			ChannelUpdateEvent: src,
@@ -51,7 +51,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Old:                c,
 		}
 	case *gateway.ChannelDeleteEvent:
-		c, _ := h.s.Store.Channel(src.ID)
+		c, _ := h.s.Cabinet.Channel(src.ID)
 
 		return &ChannelDeleteEvent{
 			ChannelDeleteEvent: src,
@@ -76,7 +76,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Base:             base,
 		}
 	case *gateway.GuildUpdateEvent:
-		g, _ := h.s.Store.Guild(src.ID)
+		g, _ := h.s.Cabinet.Guild(src.ID)
 
 		return &GuildUpdateEvent{
 			GuildUpdateEvent: src,
@@ -84,7 +84,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Old:              g,
 		}
 	case *gateway.GuildDeleteEvent:
-		g, _ := h.s.Store.Guild(src.ID)
+		g, _ := h.s.Cabinet.Guild(src.ID)
 
 		return &GuildDeleteEvent{
 			GuildDeleteEvent: src,
@@ -102,7 +102,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Base:                base,
 		}
 	case *gateway.GuildEmojisUpdateEvent:
-		e, _ := h.s.Store.Emojis(src.GuildID)
+		e, _ := h.s.Cabinet.Emojis(src.GuildID)
 
 		return &GuildEmojisUpdateEvent{
 			GuildEmojisUpdateEvent: src,
@@ -120,7 +120,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Base:                base,
 		}
 	case *gateway.GuildMemberRemoveEvent:
-		m, _ := h.s.Store.Member(src.GuildID, src.User.ID)
+		m, _ := h.s.Cabinet.Member(src.GuildID, src.User.ID)
 
 		return &GuildMemberRemoveEvent{
 			GuildMemberRemoveEvent: src,
@@ -128,7 +128,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Old:                    m,
 		}
 	case *gateway.GuildMemberUpdateEvent:
-		m, _ := h.s.Store.Member(src.GuildID, src.User.ID)
+		m, _ := h.s.Cabinet.Member(src.GuildID, src.User.ID)
 
 		return &GuildMemberUpdateEvent{
 			GuildMemberUpdateEvent: src,
@@ -146,7 +146,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Base:                 base,
 		}
 	case *gateway.GuildRoleUpdateEvent:
-		r, _ := h.s.Store.Role(src.GuildID, src.Role.ID)
+		r, _ := h.s.Cabinet.Role(src.GuildID, src.Role.ID)
 
 		return &GuildRoleUpdateEvent{
 			GuildRoleUpdateEvent: src,
@@ -154,7 +154,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Old:                  r,
 		}
 	case *gateway.GuildRoleDeleteEvent:
-		r, _ := h.s.Store.Role(src.GuildID, src.RoleID)
+		r, _ := h.s.Cabinet.Role(src.GuildID, src.RoleID)
 
 		return &GuildRoleDeleteEvent{
 			GuildRoleDeleteEvent: src,
@@ -181,7 +181,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Base:               base,
 		}
 	case *gateway.MessageUpdateEvent:
-		m, _ := h.s.Store.Message(src.ChannelID, src.ID)
+		m, _ := h.s.Cabinet.Message(src.ChannelID, src.ID)
 
 		return &MessageUpdateEvent{
 			MessageUpdateEvent: src,
@@ -189,7 +189,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			Old:                m,
 		}
 	case *gateway.MessageDeleteEvent:
-		m, _ := h.s.Store.Message(src.ChannelID, src.ID)
+		m, _ := h.s.Cabinet.Message(src.ChannelID, src.ID)
 
 		return &MessageDeleteEvent{
 			MessageDeleteEvent: src,
@@ -200,7 +200,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 		msgs := make([]discord.Message, 0, len(src.IDs))
 
 		for _, id := range src.IDs {
-			m, err := h.s.Store.Message(src.ChannelID, id)
+			m, err := h.s.Cabinet.Message(src.ChannelID, id)
 			if err == nil {
 				msgs = append(msgs, *m)
 			}
@@ -226,10 +226,10 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 			MessageReactionRemoveAllEvent: src,
 			Base:                          base,
 		}
-	case *gateway.MessageReactionRemoveEmoji:
+	case *gateway.MessageReactionRemoveEmojiEvent:
 		return &MessageReactionRemoveEmojiEvent{
-			MessageReactionRemoveEmoji: src,
-			Base:                       base,
+			MessageReactionRemoveEmojiEvent: src,
+			Base:                            base,
 		}
 	case *gateway.MessageAckEvent:
 		return &MessageAckEvent{
@@ -239,7 +239,7 @@ func (h *EventHandler) genEvent(src interface{}) interface{} {
 
 	// ---------------- Presence Events ----------------
 	case *gateway.PresenceUpdateEvent:
-		p, _ := h.s.Store.Presence(src.GuildID, src.User.ID)
+		p, _ := h.s.Cabinet.Presence(src.GuildID, src.User.ID)
 
 		return &PresenceUpdateEvent{
 			PresenceUpdateEvent: src,

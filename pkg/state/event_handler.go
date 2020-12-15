@@ -71,6 +71,9 @@ type (
 
 // NewEventHandler creates a new EventHandler.
 func NewEventHandler(s *State) *EventHandler {
+	// make sure state update is blocking
+	s.State.Session.Handler.Synchronous = true
+
 	return &EventHandler{
 		s:                 s,
 		sv:                reflect.ValueOf(s),
@@ -85,6 +88,7 @@ func NewEventHandler(s *State) *EventHandler {
 // called.
 func (h *EventHandler) Open(events <-chan interface{}) {
 	closer := make(chan struct{})
+	h.closer = closer
 
 	go func() {
 		for {
@@ -97,7 +101,7 @@ func (h *EventHandler) Open(events <-chan interface{}) {
 					break
 				}
 
-				h.s.updateStore(gatewayEvent)
+				h.s.Session.Call(gatewayEvent) // trigger state update
 				go h.Call(e)
 			}
 		}
@@ -106,13 +110,14 @@ func (h *EventHandler) Open(events <-chan interface{}) {
 
 func (h *EventHandler) Close() {
 	if h.closer != nil {
-		h.closer <- struct{}{}
+		close(h.closer)
+		h.closer = nil
 	}
 }
 
 var (
 	stateType = reflect.TypeOf(new(State))
-	errorType = reflect.TypeOf(func(error) {}).In(0)
+	errorType = reflect.TypeOf((error)(nil))
 )
 
 // AddHandler adds a handlers with the passed globalMiddlewares to the event handlers.
@@ -163,11 +168,7 @@ func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (fu
 		}
 
 		switch met := mt.In(1); met {
-		case interfaceType:
-			fallthrough
-		case baseType:
-			fallthrough
-		case fet:
+		case interfaceType, baseType, fet:
 			gh.middlewares[i] = middleware{
 				middleware: mv,
 				typ:        met,
@@ -226,8 +227,8 @@ func (h *EventHandler) AutoAddHandlers(scan interface{}, middlewares ...interfac
 		m := v.Method(i)
 
 		if m.CanInterface() {
-			// we try to add, AddHandler will abort if m is not a valid handlers
-			// func
+			// just try, AddHandler will abort if m is not a valid
+			// handler func
 			_, _ = h.AddHandler(m.Interface(), middlewares...)
 		}
 	}
@@ -291,7 +292,8 @@ func (h *EventHandler) Call(e interface{}) {
 	case *ReadyEvent:
 		h.handleReady(e)
 	case *GuildCreateEvent:
-		if specificEvent := h.handleGuildCreate(e); !abort {
+		specificEvent := h.handleGuildCreate(e)
+		if !abort {
 			sev := reflect.ValueOf(specificEvent)
 			set := reflect.TypeOf(specificEvent)
 			h.call(sev, set, false)
@@ -299,7 +301,8 @@ func (h *EventHandler) Call(e interface{}) {
 
 		direct = true
 	case *GuildDeleteEvent:
-		if specificEvent := h.handleGuildDelete(e); !abort {
+		specificEvent := h.handleGuildDelete(e)
+		if !abort {
 			sev := reflect.ValueOf(specificEvent)
 			set := reflect.TypeOf(specificEvent)
 			h.call(sev, set, false)
@@ -409,23 +412,23 @@ func (h *EventHandler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) 
 		}
 
 		var (
-			result []reflect.Value
-			panic  bool
+			result   []reflect.Value
+			didPanic bool
 		)
 
 		func() {
 			defer func() {
 				if rec := recover(); rec != nil {
 					h.PanicHandler(rec)
-					panic = true
+					didPanic = true
 				}
 			}()
 
 			result = next.middleware.Call([]reflect.Value{h.sv, in2})
 		}()
 
-		if panic {
-			return false
+		if didPanic {
+			return true
 		}
 
 		if h.handleResult(result) {
@@ -483,21 +486,15 @@ func (h *EventHandler) handleGuildCreate(e *GuildCreateEvent) interface{} {
 	switch {
 	// this guild was unavailable, but has come back online
 	case h.s.unavailableGuilds.Delete(e.ID):
-		return &GuildAvailableEvent{
-			GuildCreateEvent: e,
-		}
+		return &GuildAvailableEvent{GuildCreateEvent: e}
 
 	// the guild was announced in Ready and has now become available
 	case h.s.unreadyGuilds.Delete(e.ID):
-		return &GuildReadyEvent{
-			GuildCreateEvent: e,
-		}
+		return &GuildReadyEvent{GuildCreateEvent: e}
 
 	// we don't know this guild, hence we just joined it
 	default:
-		return &GuildJoinEvent{
-			GuildCreateEvent: e,
-		}
+		return &GuildJoinEvent{GuildCreateEvent: e}
 	}
 }
 
@@ -507,15 +504,11 @@ func (h *EventHandler) handleGuildDelete(e *GuildDeleteEvent) interface{} {
 	if e.Unavailable {
 		h.s.unavailableGuilds.Add(e.ID)
 
-		return &GuildUnavailableEvent{
-			GuildDeleteEvent: e,
-		}
+		return &GuildUnavailableEvent{GuildDeleteEvent: e}
 	}
 
 	// it might have been unavailable before we left
 	h.s.unavailableGuilds.Delete(e.ID)
 
-	return &GuildLeaveEvent{
-		GuildDeleteEvent: e,
-	}
+	return &GuildLeaveEvent{GuildDeleteEvent: e}
 }
