@@ -42,6 +42,8 @@ type (
 		globalMiddlewares      map[reflect.Type][]globalMiddleware
 		globalMiddlewaresMutex sync.RWMutex
 
+		wg sync.WaitGroup
+
 		ErrorHandler func(err error)
 		PanicHandler func(err interface{})
 
@@ -103,17 +105,28 @@ func (h *EventHandler) Open(events <-chan interface{}) {
 					break
 				}
 
+				// prevent premature closer between here and when the first handler is called
+				h.wg.Add(1)
+
 				h.s.Session.Call(gatewayEvent) // trigger state update
-				go h.Call(e)
+
+				go func() {
+					h.Call(e)
+					h.wg.Done()
+				}()
 			}
 		}
 	}()
 }
 
+// Close stops the event listener and blocks until all handlers have finished
+// executing.
 func (h *EventHandler) Close() {
 	if h.closer != nil {
 		close(h.closer)
 		h.closer = nil
+
+		h.wg.Wait()
 	}
 }
 
@@ -365,6 +378,8 @@ func (h *EventHandler) call(ev reflect.Value, et reflect.Type, direct bool) {
 // ev must not be a pointer, however, et is expected to be the pointerized type
 // of ev.
 func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*genericHandler) {
+	h.wg.Add(len(gh))
+
 	for _, handler := range gh {
 		go func(ha *genericHandler) {
 			defer func() {
@@ -381,6 +396,8 @@ func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*gen
 
 			result := ha.handler.Call([]reflect.Value{h.sv, cp})
 			h.handleResult(result)
+
+			h.wg.Done()
 		}(handler)
 	}
 }
