@@ -382,6 +382,8 @@ func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*gen
 
 	for _, handler := range gh {
 		go func(ha *genericHandler) {
+			defer h.wg.Done()
+
 			defer func() {
 				if rec := recover(); rec != nil {
 					h.PanicHandler(rec)
@@ -396,8 +398,6 @@ func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*gen
 
 			result := ha.handler.Call([]reflect.Value{h.sv, cp})
 			h.handleResult(result)
-
-			h.wg.Done()
 		}(handler)
 	}
 }
