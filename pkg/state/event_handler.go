@@ -159,39 +159,79 @@ func (h *EventHandler) DeriveIntents() (i gateway.Intents) {
 	return
 }
 
-// AddHandler adds a handlers with the passed middlewares to the event
-// handlers.
+// AddHandler adds a handler with the passed middlewares to the event handlers.
+// A handler can either be a function, or a channel of type chan *eventType.
+// Note, however, that channel sends are non-blocking, and you must either
+// buffer your channel sufficiently, or ensure you are listening.
+//
+// The signature of a handler func is func(*State, e) where e is either a
+// pointer to an event, *Base or interface{}.
+// Optionally, a handler may return an error.
 //
 // Middlewares must be of the same type as the handlers or must be an
 // interface{} or Base handlers.
-//
-// The scheme of a handler func is func(*State, e) where e is either a pointer
-// to an event, *Base or interface{}.
-// Optionally, a handler may return an error.
-func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (func(), error) {
-	fv := reflect.ValueOf(f)
-	ft := fv.Type()
+func (h *EventHandler) AddHandler(handler interface{}, middlewares ...interface{}) (rm func(), err error) {
+	handlerVal := reflect.ValueOf(handler)
+	handlerType := handlerVal.Type()
 
-	if ft.Kind() != reflect.Func {
+	if handlerType.Kind() == reflect.Chan {
+		elemt := handlerType.Elem()
+
+		return h.AddHandler(func(_ *State, e interface{}) {
+			if reflect.TypeOf(e).AssignableTo(elemt) {
+				handlerVal.TrySend(reflect.ValueOf(e))
+			}
+		})
+	} else if handlerType.Kind() != reflect.Func {
 		return nil, ErrInvalidHandler
 	}
 
 	// we expect two input params, first must be state
-	if ft.NumIn() != 2 || ft.In(0) != stateType {
+	if handlerType.NumIn() != 2 || handlerType.In(0) != stateType {
 		return nil, ErrInvalidHandler
 		// we expect either no return or an error return
-	} else if (ft.NumOut() == 1 && ft.Out(1) != errorType) || ft.NumOut() != 0 {
+	} else if (handlerType.NumOut() == 1 && handlerType.Out(1) != errorType) ||
+		handlerType.NumOut() != 0 {
 		return nil, ErrInvalidHandler
 	}
 
-	fet := ft.In(1)
+	eventType := handlerType.In(1)
 
-	gh := &genericHandler{
-		handler:     fv,
-		middlewares: make([]middleware, len(middlewares)),
+	gh := &genericHandler{handler: handlerVal}
+
+	gh.middlewares, err = h.extractMiddlewares(middlewares, eventType)
+	if err != nil {
+		return nil, err
 	}
 
-	for i, m := range middlewares {
+	h.handlersMutex.Lock()
+	h.handlers[eventType] = append(h.handlers[eventType], gh)
+	h.handlersMutex.Unlock()
+
+	var once sync.Once
+
+	return func() {
+		once.Do(func() {
+			h.handlersMutex.Lock()
+
+			handler := h.handlers[handlerType]
+
+			for i, ha := range handler {
+				if ha == gh {
+					h.handlers[handlerType] = append(handler[:i], handler[i+1:]...)
+					break
+				}
+			}
+
+			h.handlersMutex.Unlock()
+		})
+	}, nil
+}
+
+func (h *EventHandler) extractMiddlewares(raw []interface{}, eventType reflect.Type) ([]middleware, error) {
+	mw := make([]middleware, len(raw))
+
+	for i, m := range raw {
 		mv := reflect.ValueOf(m)
 		mt := mv.Type()
 
@@ -201,15 +241,15 @@ func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (fu
 
 		// we expect two input params, first must be state
 		if mt.NumIn() != 2 || mt.In(0) != stateType {
-			return nil, ErrInvalidHandler
+			return nil, ErrInvalidMiddleware
 			// we expect either no return or an error return
 		} else if (mt.NumOut() == 1 && mt.Out(1) != errorType) || mt.NumOut() != 0 {
-			return nil, ErrInvalidHandler
+			return nil, ErrInvalidMiddleware
 		}
 
 		switch met := mt.In(1); met {
-		case interfaceType, baseType, fet:
-			gh.middlewares[i] = middleware{
+		case interfaceType, baseType, eventType:
+			mw[i] = middleware{
 				middleware: mv,
 				typ:        met,
 			}
@@ -218,28 +258,7 @@ func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (fu
 		}
 	}
 
-	h.handlersMutex.Lock()
-	h.handlers[fet] = append(h.handlers[fet], gh)
-	h.handlersMutex.Unlock()
-
-	var once sync.Once
-
-	return func() {
-		once.Do(func() {
-			h.handlersMutex.Lock()
-
-			handler := h.handlers[ft]
-
-			for i, ha := range handler {
-				if ha == gh {
-					h.handlers[ft] = append(handler[:i], handler[i+1:]...)
-					break
-				}
-			}
-
-			h.handlersMutex.Unlock()
-		})
-	}, nil
+	return mw, nil
 }
 
 // MustAddHandler is the same as AddHandler, but panics if AddHandler returns
