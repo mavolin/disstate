@@ -63,6 +63,11 @@ type (
 	genericHandler struct {
 		handler reflect.Value
 
+		channel bool
+
+		once *sync.Once
+		rm   func()
+
 		// middlewares are the middlewares for the handler.
 		middlewares []middleware
 	}
@@ -159,39 +164,92 @@ func (h *EventHandler) DeriveIntents() (i gateway.Intents) {
 	return
 }
 
-// AddHandler adds a handlers with the passed middlewares to the event
-// handlers.
-//
-// Middlewares must be of the same type as the handlers or must be an
-// interface{} or Base handlers.
+// AddHandler adds a handler with the passed middlewares to the event handlers.
+// A handler can either be a function, or a channel of type chan *eventType.
+// Note, however, that channel sends are non-blocking, and you must either
+// buffer your channel sufficiently, or ensure you are listening.
 //
 // The signature of a handler func is func(*State, e) where e is either a
 // pointer to an event, *Base or interface{}.
 // Optionally, a handler may return an error.
-func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (func(), error) {
-	fv := reflect.ValueOf(f)
-	ft := fv.Type()
+//
+// Middlewares must be of the same type as the handlers or must be an
+// interface{} or Base handlers.
+func (h *EventHandler) AddHandler(handler interface{}, middlewares ...interface{}) (rm func(), err error) {
+	return h.addHandler(handler, false, middlewares...)
+}
 
-	if ft.Kind() != reflect.Func {
+func (h *EventHandler) addHandler(
+	handler interface{}, execOnce bool, middlewares ...interface{},
+) (rm func(), err error) {
+	handlerVal := reflect.ValueOf(handler)
+	handlerType := handlerVal.Type()
+
+	var eventType reflect.Type
+
+	switch handlerType.Kind() {
+	case reflect.Chan:
+		eventType = handlerType.Elem()
+	case reflect.Func:
+		// we expect two input params, first must be state
+		if handlerType.NumIn() != 2 || handlerType.In(0) != stateType {
+			return nil, ErrInvalidHandler
+			// we expect either no return or an error return
+		} else if (handlerType.NumOut() == 1 && handlerType.Out(1) != errorType) ||
+			handlerType.NumOut() != 0 {
+			return nil, ErrInvalidHandler
+		}
+
+		eventType = handlerType.In(1)
+	default:
 		return nil, ErrInvalidHandler
 	}
-
-	// we expect two input params, first must be state
-	if ft.NumIn() != 2 || ft.In(0) != stateType {
-		return nil, ErrInvalidHandler
-		// we expect either no return or an error return
-	} else if (ft.NumOut() == 1 && ft.Out(1) != errorType) || ft.NumOut() != 0 {
-		return nil, ErrInvalidHandler
-	}
-
-	fet := ft.In(1)
 
 	gh := &genericHandler{
-		handler:     fv,
-		middlewares: make([]middleware, len(middlewares)),
+		handler: handlerVal,
+		channel: handlerType.Kind() == reflect.Chan,
 	}
 
-	for i, m := range middlewares {
+	gh.middlewares, err = h.extractMiddlewares(middlewares, eventType)
+	if err != nil {
+		return nil, err
+	}
+
+	var once sync.Once
+
+	rm = func() {
+		once.Do(func() {
+			h.handlersMutex.Lock()
+
+			handler := h.handlers[handlerType]
+
+			for i, ha := range handler {
+				if ha == gh {
+					h.handlers[handlerType] = append(handler[:i], handler[i+1:]...)
+					break
+				}
+			}
+
+			h.handlersMutex.Unlock()
+		})
+	}
+
+	if execOnce {
+		gh.once = new(sync.Once)
+		gh.rm = rm
+	}
+
+	h.handlersMutex.Lock()
+	h.handlers[eventType] = append(h.handlers[eventType], gh)
+	h.handlersMutex.Unlock()
+
+	return rm, nil
+}
+
+func (h *EventHandler) extractMiddlewares(raw []interface{}, eventType reflect.Type) ([]middleware, error) {
+	mw := make([]middleware, len(raw))
+
+	for i, m := range raw {
 		mv := reflect.ValueOf(m)
 		mt := mv.Type()
 
@@ -201,15 +259,15 @@ func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (fu
 
 		// we expect two input params, first must be state
 		if mt.NumIn() != 2 || mt.In(0) != stateType {
-			return nil, ErrInvalidHandler
+			return nil, ErrInvalidMiddleware
 			// we expect either no return or an error return
 		} else if (mt.NumOut() == 1 && mt.Out(1) != errorType) || mt.NumOut() != 0 {
-			return nil, ErrInvalidHandler
+			return nil, ErrInvalidMiddleware
 		}
 
 		switch met := mt.In(1); met {
-		case interfaceType, baseType, fet:
-			gh.middlewares[i] = middleware{
+		case interfaceType, baseType, eventType:
+			mw[i] = middleware{
 				middleware: mv,
 				typ:        met,
 			}
@@ -218,39 +276,35 @@ func (h *EventHandler) AddHandler(f interface{}, middlewares ...interface{}) (fu
 		}
 	}
 
-	h.handlersMutex.Lock()
-	h.handlers[fet] = append(h.handlers[fet], gh)
-	h.handlersMutex.Unlock()
-
-	var once sync.Once
-
-	return func() {
-		once.Do(func() {
-			h.handlersMutex.Lock()
-
-			handler := h.handlers[ft]
-
-			for i, ha := range handler {
-				if ha == gh {
-					h.handlers[ft] = append(handler[:i], handler[i+1:]...)
-					break
-				}
-			}
-
-			h.handlersMutex.Unlock()
-		})
-	}, nil
+	return mw, nil
 }
 
 // MustAddHandler is the same as AddHandler, but panics if AddHandler returns
 // an error.
-func (h *EventHandler) MustAddHandler(f interface{}, middlewares ...interface{}) func() {
-	r, err := h.AddHandler(f, middlewares...)
+func (h *EventHandler) MustAddHandler(handler interface{}, middlewares ...interface{}) func() {
+	r, err := h.AddHandler(handler, middlewares...)
 	if err != nil {
 		panic(err)
 	}
 
 	return r
+}
+
+// AddHandlerOnce adds a handler that is only executed once.
+// If middlewares prevent execution, the handler will be executed on the next
+// event.
+func (h *EventHandler) AddHandlerOnce(handler interface{}, middlewares ...interface{}) error {
+	_, err := h.addHandler(handler, true, middlewares...)
+	return err
+}
+
+// MustAddHandlerOnce is the same as AddHandlerOnce, but panics if
+// AddHandlerOnce returns an error.
+func (h *EventHandler) MustAddHandlerOnce(handler interface{}, middlewares ...interface{}) {
+	err := h.AddHandlerOnce(handler, middlewares...)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // AutoAddHandlers adds all handlers methods of the passed struct to the
@@ -377,11 +431,11 @@ func (h *EventHandler) call(ev reflect.Value, et reflect.Type, direct bool) {
 // callHandlers calls the passed slice of handlers using the passed event ev.
 // ev must not be a pointer, however, et is expected to be the pointerized type
 // of ev.
-func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*genericHandler) {
-	h.wg.Add(len(gh))
+func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, handlers []*genericHandler) {
+	h.wg.Add(len(handlers))
 
-	for _, handler := range gh {
-		go func(ha *genericHandler) {
+	for _, gh := range handlers {
+		go func(gh *genericHandler) {
 			defer h.wg.Done()
 
 			defer func() {
@@ -392,13 +446,30 @@ func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, gh []*gen
 
 			cp := copyEvent(ev, et)
 
-			if h.callMiddlewares(cp, et, ha.middlewares) {
+			if h.callMiddlewares(cp, et, gh.middlewares) {
 				return
 			}
 
-			result := ha.handler.Call([]reflect.Value{h.sv, cp})
-			h.handleResult(result)
-		}(handler)
+			if gh.once != nil {
+				gh.once.Do(func() {
+					h.callHandler(gh, cp)
+					gh.rm()
+				})
+			} else {
+				h.callHandler(gh, cp)
+			}
+
+			h.wg.Done()
+		}(gh)
+	}
+}
+
+func (h *EventHandler) callHandler(gh *genericHandler, ev reflect.Value) {
+	if gh.channel {
+		gh.handler.TrySend(ev)
+	} else {
+		result := gh.handler.Call([]reflect.Value{h.sv, ev})
+		h.handleResult(result)
 	}
 }
 

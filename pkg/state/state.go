@@ -95,6 +95,16 @@ func NewFromState(s *state.State) (st *State) {
 	return
 }
 
+// WithContext returns a shallow copy of State with the context replaced in the
+// API client. All methods called on the State will use this given context. This
+// method is thread-safe.
+func (s *State) WithContext(ctx context.Context) *State {
+	copied := *s
+	copied.Client = copied.Client.WithContext(ctx)
+
+	return &copied
+}
+
 // Open opens a connection to the gateway.
 func (s *State) Open() error {
 	s.EventHandler.Open(s.Gateway.Events)
@@ -116,12 +126,7 @@ func (s *State) Close() (err error) {
 	return
 }
 
-// WithContext returns a shallow copy of State with the context replaced in the
-// API client. All methods called on the State will use this given context. This
-// method is thread-safe.
-func (s *State) WithContext(ctx context.Context) *State {
-	copied := *s
-	copied.Client = copied.Client.WithContext(ctx)
-
-	return &copied
+// AddIntents adds the passed intents to the state.
+func (s *State) AddIntents(i gateway.Intents) {
+	s.Gateway.AddIntents(i)
 }
