@@ -458,8 +458,6 @@ func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, handlers 
 			} else {
 				h.callHandler(gh, cp)
 			}
-
-			h.wg.Done()
 		}(gh)
 	}
 }
