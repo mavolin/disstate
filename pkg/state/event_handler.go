@@ -187,9 +187,10 @@ func (h *EventHandler) addHandler(
 
 	var eventType reflect.Type
 
-	if handlerType.Kind() == reflect.Chan {
+	switch handlerType.Kind() {
+	case reflect.Chan:
 		eventType = handlerType.Elem()
-	} else if handlerType.Kind() == reflect.Func {
+	case reflect.Func:
 		// we expect two input params, first must be state
 		if handlerType.NumIn() != 2 || handlerType.In(0) != stateType {
 			return nil, ErrInvalidHandler
@@ -200,7 +201,7 @@ func (h *EventHandler) addHandler(
 		}
 
 		eventType = handlerType.In(1)
-	} else {
+	default:
 		return nil, ErrInvalidHandler
 	}
 
