@@ -13,14 +13,14 @@ var (
 	// EventManager.AddHandler or EventManager.MustAddHandler is not a valid
 	// handler func, i.e. not following the form of func(*State, e) where e is
 	// either a pointer to an event, *Base or interface{}.
-	ErrInvalidHandler = errors.New("the passed interface{} does not resemble a valid handler")
+	ErrInvalidHandler = errors.New("state: the passed interface{} does not resemble a valid handler")
 	// ErrInvalidMiddleware gets returned if a middleware given to
 	// EventManger.AddHandler or EventManager.MustAddHandler has not the same
 	// type as its handler.
 	//
-	// Additionally, it is returned by AddGlobalMiddleware and
-	// MustAddGlobalMiddleware if the middleware func is invalid.
-	ErrInvalidMiddleware = errors.New("the passed middleware does not match the type of the handler")
+	// Additionally, it is returned by AddMiddleware and
+	// MustAddMiddleware if the middleware func is invalid.
+	ErrInvalidMiddleware = errors.New("state: the passed middleware does not match the type of the handler")
 
 	// Filtered should be returned if a filter blocks an event.
 	Filtered = errors.New("filtered") //nolint:golint,stylecheck
@@ -327,12 +327,12 @@ func (h *EventHandler) AutoAddHandlers(scan interface{}, middlewares ...interfac
 	}
 }
 
-// AddGlobalMiddleware adds the passed middleware as a global middleware.
+// AddMiddleware adds the passed middleware as a global middleware.
 //
-// The scheme of a middleware func is func(*State, e) where e is either a
+// The signature of a middleware func is func(*State, e) where e is either a
 // pointer to an event, *Base or interface{}.
 // Optionally, a middleware may return an error.
-func (h *EventHandler) AddGlobalMiddleware(f interface{}) error {
+func (h *EventHandler) AddMiddleware(f interface{}) error {
 	fv := reflect.ValueOf(f)
 	ft := fv.Type()
 
@@ -359,10 +359,10 @@ func (h *EventHandler) AddGlobalMiddleware(f interface{}) error {
 	return nil
 }
 
-// MustAddGlobalMiddleware is the same as AddGlobalMiddleware but panics if
-// AddGlobalMiddleware returns an error.
-func (h *EventHandler) MustAddGlobalMiddleware(f interface{}) {
-	err := h.AddGlobalMiddleware(f)
+// MustAddMiddleware is the same as AddMiddleware but panics if AddMiddleware
+// returns an error.
+func (h *EventHandler) MustAddMiddleware(f interface{}) {
+	err := h.AddMiddleware(f)
 	if err != nil {
 		panic(err)
 	}
@@ -435,6 +435,8 @@ func (h *EventHandler) callHandlers(ev reflect.Value, et reflect.Type, handlers 
 
 	for _, gh := range handlers {
 		go func(gh *genericHandler) {
+			defer h.wg.Done()
+
 			defer func() {
 				if rec := recover(); rec != nil {
 					h.PanicHandler(rec)
