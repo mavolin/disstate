@@ -26,11 +26,6 @@ var (
 	Filtered = errors.New("filtered") //nolint:golint,stylecheck
 )
 
-var (
-	interfaceType = reflect.TypeOf(func(interface{}) {}).In(0)
-	baseType      = reflect.TypeOf(new(Base))
-)
-
 type (
 	EventHandler struct {
 		s  *State
@@ -135,11 +130,6 @@ func (h *EventHandler) Close() {
 	}
 }
 
-var (
-	stateType = reflect.TypeOf(new(State))
-	errorType = reflect.TypeOf((error)(nil))
-)
-
 // DeriveIntents derives the intents based on the event handlers and global
 // middlewares that were added.
 // Interface and Base handlers will not be taken into account.
@@ -164,6 +154,14 @@ func (h *EventHandler) DeriveIntents() (i gateway.Intents) {
 	return
 }
 
+var (
+	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
+	baseType      = reflect.TypeOf(new(Base))
+	stateType     = reflect.TypeOf(new(State))
+
+	errorType = reflect.TypeOf((*error)(nil)).Elem()
+)
+
 // AddHandler adds a handler with the passed middlewares to the event handlers.
 // A handler can either be a function, or a channel of type chan *eventType.
 // Note, however, that channel sends are non-blocking, and you must either
@@ -177,6 +175,55 @@ func (h *EventHandler) DeriveIntents() (i gateway.Intents) {
 // interface{} or Base handlers.
 func (h *EventHandler) AddHandler(handler interface{}, middlewares ...interface{}) (rm func(), err error) {
 	return h.addHandler(handler, false, middlewares...)
+}
+
+// MustAddHandler is the same as AddHandler, but panics if AddHandler returns
+// an error.
+func (h *EventHandler) MustAddHandler(handler interface{}, middlewares ...interface{}) func() {
+	rm, err := h.AddHandler(handler, middlewares...)
+	if err != nil {
+		panic(err)
+	}
+
+	return rm
+}
+
+// AddHandlerOnce adds a handler that is only executed once.
+// If middlewares prevent execution, the handler will be executed on the next
+// event.
+func (h *EventHandler) AddHandlerOnce(handler interface{}, middlewares ...interface{}) error {
+	_, err := h.addHandler(handler, true, middlewares...)
+	return err
+}
+
+// MustAddHandlerOnce is the same as AddHandlerOnce, but panics if
+// AddHandlerOnce returns an error.
+func (h *EventHandler) MustAddHandlerOnce(handler interface{}, middlewares ...interface{}) {
+	err := h.AddHandlerOnce(handler, middlewares...)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// AutoAddHandlers adds all handlers methods of the passed struct to the
+// EventHandler.
+// scan must be a pointer to a struct.
+func (h *EventHandler) AutoAddHandlers(scan interface{}, middlewares ...interface{}) {
+	v := reflect.ValueOf(scan)
+
+	if v.Kind() != reflect.Ptr {
+		return
+	}
+
+	for i := 0; i < v.NumMethod(); i++ {
+		m := v.Method(i)
+
+		if m.CanInterface() {
+			// just try, AddHandler will abort if m is not a valid
+			// handler func
+			_, _ = h.AddHandler(m.Interface(), middlewares...)
+		}
+	}
 }
 
 func (h *EventHandler) addHandler(
@@ -275,55 +322,6 @@ func (h *EventHandler) extractMiddlewares(raw []interface{}, eventType reflect.T
 	}
 
 	return mw, nil
-}
-
-// MustAddHandler is the same as AddHandler, but panics if AddHandler returns
-// an error.
-func (h *EventHandler) MustAddHandler(handler interface{}, middlewares ...interface{}) func() {
-	rm, err := h.AddHandler(handler, middlewares...)
-	if err != nil {
-		panic(err)
-	}
-
-	return rm
-}
-
-// AddHandlerOnce adds a handler that is only executed once.
-// If middlewares prevent execution, the handler will be executed on the next
-// event.
-func (h *EventHandler) AddHandlerOnce(handler interface{}, middlewares ...interface{}) error {
-	_, err := h.addHandler(handler, true, middlewares...)
-	return err
-}
-
-// MustAddHandlerOnce is the same as AddHandlerOnce, but panics if
-// AddHandlerOnce returns an error.
-func (h *EventHandler) MustAddHandlerOnce(handler interface{}, middlewares ...interface{}) {
-	err := h.AddHandlerOnce(handler, middlewares...)
-	if err != nil {
-		panic(err)
-	}
-}
-
-// AutoAddHandlers adds all handlers methods of the passed struct to the
-// EventHandler.
-// scan must be a pointer to a struct.
-func (h *EventHandler) AutoAddHandlers(scan interface{}, middlewares ...interface{}) {
-	v := reflect.ValueOf(scan)
-
-	if v.Kind() != reflect.Ptr {
-		return
-	}
-
-	for i := 0; i < v.NumMethod(); i++ {
-		m := v.Method(i)
-
-		if m.CanInterface() {
-			// just try, AddHandler will abort if m is not a valid
-			// handler func
-			_, _ = h.AddHandler(m.Interface(), middlewares...)
-		}
-	}
 }
 
 // AddMiddleware adds the passed middleware as a global middleware.
