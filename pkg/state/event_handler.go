@@ -195,8 +195,7 @@ func (h *EventHandler) addHandler(
 		if handlerType.NumIn() != 2 || handlerType.In(0) != stateType {
 			return nil, ErrInvalidHandler
 			// we expect either no return or an error return
-		} else if (handlerType.NumOut() == 1 && handlerType.Out(0) != errorType) ||
-			handlerType.NumOut() != 0 {
+		} else if handlerType.NumOut() != 0 && (handlerType.NumOut() != 1 || handlerType.Out(0) != errorType) {
 			return nil, ErrInvalidHandler
 		}
 
@@ -260,7 +259,7 @@ func (h *EventHandler) extractMiddlewares(raw []interface{}, eventType reflect.T
 		if mt.NumIn() != 2 || mt.In(0) != stateType {
 			return nil, ErrInvalidMiddleware
 			// we expect either no return or an error return
-		} else if (mt.NumOut() == 1 && mt.Out(1) != errorType) || mt.NumOut() != 0 {
+		} else if mt.NumOut() != 0 && (mt.NumOut() != 1 || mt.Out(0) != errorType) {
 			return nil, ErrInvalidMiddleware
 		}
 
@@ -340,7 +339,7 @@ func (h *EventHandler) AddMiddleware(f interface{}) error {
 	if ft.NumIn() != 2 || ft.In(0) != stateType {
 		return ErrInvalidMiddleware
 		// we expect either no return or an error return
-	} else if !((ft.NumOut() == 1 && ft.Out(0) == errorType) || ft.NumOut() == 0) {
+	} else if ft.NumOut() != 0 && (ft.NumOut() != 1 || ft.Out(0) != errorType) {
 		return ErrInvalidMiddleware
 	}
 
