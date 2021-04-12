@@ -47,7 +47,7 @@ type (
 		ErrorHandler func(err error)
 		PanicHandler func(err interface{})
 
-		// currentSerial the next available serial number.
+		// currentSerial is the next available serial number.
 		// This is used to preserve the order of global middlewares.
 		currentSerial uint64
 
@@ -195,7 +195,7 @@ func (h *EventHandler) addHandler(
 		if handlerType.NumIn() != 2 || handlerType.In(0) != stateType {
 			return nil, ErrInvalidHandler
 			// we expect either no return or an error return
-		} else if (handlerType.NumOut() == 1 && handlerType.Out(1) != errorType) ||
+		} else if (handlerType.NumOut() == 1 && handlerType.Out(0) != errorType) ||
 			handlerType.NumOut() != 0 {
 			return nil, ErrInvalidHandler
 		}
@@ -220,6 +220,7 @@ func (h *EventHandler) addHandler(
 	rm = func() {
 		once.Do(func() {
 			h.handlersMutex.Lock()
+			defer h.handlersMutex.Unlock()
 
 			handler := h.handlers[handlerType]
 
@@ -229,8 +230,6 @@ func (h *EventHandler) addHandler(
 					break
 				}
 			}
-
-			h.handlersMutex.Unlock()
 		})
 	}
 
@@ -282,12 +281,12 @@ func (h *EventHandler) extractMiddlewares(raw []interface{}, eventType reflect.T
 // MustAddHandler is the same as AddHandler, but panics if AddHandler returns
 // an error.
 func (h *EventHandler) MustAddHandler(handler interface{}, middlewares ...interface{}) func() {
-	r, err := h.AddHandler(handler, middlewares...)
+	rm, err := h.AddHandler(handler, middlewares...)
 	if err != nil {
 		panic(err)
 	}
 
-	return r
+	return rm
 }
 
 // AddHandlerOnce adds a handler that is only executed once.
@@ -348,14 +347,14 @@ func (h *EventHandler) AddMiddleware(f interface{}) error {
 	et := ft.In(1)
 
 	h.globalMiddlewaresMutex.Lock()
+	defer h.globalMiddlewaresMutex.Unlock()
+
 	h.globalMiddlewares[et] = append(h.globalMiddlewares[et], globalMiddleware{
 		middleware: fv,
 		serial:     h.currentSerial,
 	})
 
 	h.currentSerial++
-
-	h.globalMiddlewaresMutex.Unlock()
 
 	return nil
 }
@@ -377,9 +376,7 @@ func (h *EventHandler) Call(e interface{}) {
 	et := reflect.TypeOf(e)
 
 	abort := h.callGlobalMiddlewares(ev, et)
-
 	ev = ev.Elem() // from now functions only take elem
-
 	direct := false
 
 	switch e := e.(type) {
