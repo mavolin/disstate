@@ -11,15 +11,10 @@ import (
 var (
 	// ErrInvalidHandler gets returned if a handler given to
 	// EventManager.AddHandler or EventManager.MustAddHandler is not a valid
-	// handler func, i.e. not following the form of func(*State, e) where e is
-	// either a pointer to an event, *Base or interface{}.
+	// handler func.
 	ErrInvalidHandler = errors.New("state: the passed interface{} does not resemble a valid handler")
 	// ErrInvalidMiddleware gets returned if a middleware given to
-	// EventManger.AddHandler or EventManager.MustAddHandler has not the same
-	// type as its handler.
-	//
-	// Additionally, it is returned by AddMiddleware and
-	// MustAddMiddleware if the middleware func is invalid.
+	// EventManger.AddHandler or EventManager.MustAddHandler is invalid
 	ErrInvalidMiddleware = errors.New("state: the passed middleware does not match the type of the handler")
 
 	// Filtered should be returned if a filter blocks an event.
