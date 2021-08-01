@@ -2,36 +2,21 @@ package state
 
 import (
 	"context"
-	"sync"
+	"reflect"
 
-	"github.com/diamondburned/arikawa/v2/discord"
-	"github.com/diamondburned/arikawa/v2/gateway"
-	"github.com/diamondburned/arikawa/v2/session"
-	"github.com/diamondburned/arikawa/v2/state"
-	"github.com/diamondburned/arikawa/v2/state/store"
-	"github.com/diamondburned/arikawa/v2/state/store/defaultstore"
+	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
+	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/diamondburned/arikawa/v3/state/store"
+	"github.com/diamondburned/arikawa/v3/state/store/defaultstore"
 	"github.com/pkg/errors"
 
-	"github.com/mavolin/disstate/v3/internal/moreatomic"
+	"github.com/mavolin/disstate/v4/pkg/event"
 )
 
 type State struct {
 	*state.State
-	*EventHandler
-
-	// List of channels with few messages, so it doesn't bother hitting the API
-	// again.
-	fewMessages map[discord.ChannelID]struct{}
-	fewMutex    *sync.Mutex
-
-	// unavailableGuilds is a set of discord.GuildIDs of guilds that became
-	// unavailable when already connected to the gateway, i.e. sent in a
-	// GuildUnavailableEvent.
-	unavailableGuilds *moreatomic.GuildIDSet
-	// unreadyGuilds is a set of discord.GuildIDs of guilds that were
-	// unavailable when connecting to the gateway, i.e. they had Unavailable
-	// set to true during Ready.
-	unreadyGuilds *moreatomic.GuildIDSet
+	*event.Handler
 }
 
 // New creates a new State using the passed token.
@@ -54,7 +39,7 @@ func NewWithIntents(token string, intents ...gateway.Intents) (*State, error) {
 }
 
 // NewWithCabinet creates a new State with a custom state.Store.
-func NewWithCabinet(token string, cabinet store.Cabinet) (*State, error) {
+func NewWithCabinet(token string, cabinet *store.Cabinet) (*State, error) {
 	s, err := session.New(token)
 	if err != nil {
 		return nil, err
@@ -65,16 +50,10 @@ func NewWithCabinet(token string, cabinet store.Cabinet) (*State, error) {
 
 // NewFromSession creates a new *State from the passed Session.
 // The Session may not be opened.
-func NewFromSession(s *session.Session, cabinet store.Cabinet) (st *State) {
-	st = &State{
-		State:             state.NewFromSession(s, cabinet),
-		fewMessages:       map[discord.ChannelID]struct{}{},
-		fewMutex:          new(sync.Mutex),
-		unavailableGuilds: moreatomic.NewGuildIDSet(),
-		unreadyGuilds:     moreatomic.NewGuildIDSet(),
-	}
+func NewFromSession(s *session.Session, cabinet *store.Cabinet) (st *State) {
+	st = &State{State: state.NewFromSession(s, cabinet)}
 
-	st.EventHandler = NewEventHandler(st)
+	st.Handler = event.NewHandler(reflect.ValueOf(st))
 
 	return
 }
@@ -82,15 +61,9 @@ func NewFromSession(s *session.Session, cabinet store.Cabinet) (st *State) {
 // NewFromState creates a new State based on a arikawa State.
 // Event handlers from the old state won't be copied.
 func NewFromState(s *state.State) (st *State) {
-	st = &State{
-		State:             s,
-		fewMessages:       map[discord.ChannelID]struct{}{},
-		fewMutex:          new(sync.Mutex),
-		unavailableGuilds: moreatomic.NewGuildIDSet(),
-		unreadyGuilds:     moreatomic.NewGuildIDSet(),
-	}
+	st = &State{State: s}
 
-	st.EventHandler = NewEventHandler(st)
+	st.Handler = event.NewHandler(reflect.ValueOf(st))
 
 	return
 }
@@ -106,10 +79,10 @@ func (s *State) WithContext(ctx context.Context) *State {
 }
 
 // Open opens a connection to the gateway.
-func (s *State) Open() error {
-	s.EventHandler.Open(s.Gateway.Events)
+func (s *State) Open(ctx context.Context) error {
+	s.Handler.Open(s.Gateway.Events)
 
-	if err := s.Gateway.Open(); err != nil {
+	if err := s.Gateway.Open(ctx); err != nil {
 		return errors.Wrap(err, "failed to start gateway")
 	}
 
@@ -120,9 +93,9 @@ func (s *State) Open() error {
 func (s *State) Close() (err error) {
 	err = s.Gateway.Close()
 
-	s.EventHandler.Close()
+	s.Handler.Close()
 
-	s.Call(&CloseEvent{Base: NewBase()})
+	s.Call(&event.Close{Base: event.NewBase()})
 	return
 }
 

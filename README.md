@@ -2,14 +2,14 @@
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/mavolin/disstate)](https://pkg.go.dev/github.com/mavolin/disstate)
 
-Disstate is an alternative state, with a more advanced event system.
-The API is the same as the one of arikawa's `State`, only adding handlers works differently.
+Disstate is an alternative state, with a more advanced event system as well as a different approach to sharding.
+The API is the same as the one of arikawa's `State`, only adding handlers and gateway commands work differently.
 
-## Event System
+## Changes
 
 There are four major changes to the event system of arikawa:
 
-1. Handlers take a `*state.State` as first argument.
+1.  Handlers take a `*state.State` as first argument.
 2. There is support for middlewares both on a global, and a per-handler level
 3. All events have new types, that contain a `Base` which is a key-value store, that allows you to pass information from your middleware to the handler.
 4. Integrated error and panic handling.

@@ -1,4 +1,4 @@
-package state
+package event
 
 import "sync"
 

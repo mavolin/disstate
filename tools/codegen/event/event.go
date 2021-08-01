@@ -1,0 +1,155 @@
+// Package event generates the event wrapper structs and the event generator
+// function.
+package main
+
+import (
+	"embed"
+	"os"
+	"reflect"
+	"strings"
+	"text/template"
+
+	"github.com/diamondburned/arikawa/v3/gateway"
+)
+
+//go:embed *.gotmpl
+var templateFS embed.FS
+
+type (
+	// Event is the data known about a single event.
+	Event struct {
+		// Name is the go type name of the event.
+		Name string
+		// GatewayName is the name of the type as found in the gateway package.
+		GatewayName string
+		// Old contains information about the Old field, or is nil if the event
+		// has no such field.
+		Old *Old
+	}
+
+	// Old contains information about how to fill the old field of an event.
+	Old struct {
+		// Type is the type of the old field.
+		// It's package should be discord.
+		Type string
+		// CabinetFuncName is the name of the cabinet function to retrieve the
+		// old value from.
+		CabinetFuncName string
+		// CabinetFuncParams are the parameters given to the cabinet function.
+		// They should correspond to the names of the fields of the event.
+		CabinetFuncParams []string
+	}
+)
+
+var eventsWithOld = map[string]*Old{
+	"CHANNEL_UPDATE": {
+		Type:              "*discord.Channel",
+		CabinetFuncName:   "Channel",
+		CabinetFuncParams: []string{"ID"},
+	},
+	"CHANNEL_DELETE": {
+		Type:              "*discord.Channel",
+		CabinetFuncName:   "Channel",
+		CabinetFuncParams: []string{"ID"},
+	},
+	"GUILD_UPDATE": {
+		Type:              "*discord.Guild",
+		CabinetFuncName:   "Guild",
+		CabinetFuncParams: []string{"ID"},
+	},
+	"GUILD_DELETE": {
+		Type:              "*discord.Guild",
+		CabinetFuncName:   "Guild",
+		CabinetFuncParams: []string{"ID"},
+	},
+	"GUILD_MEMBER_UPDATE": {
+		Type:              "*discord.Member",
+		CabinetFuncName:   "Member",
+		CabinetFuncParams: []string{"GuildID", "User.ID"},
+	},
+	"GUILD_MEMBER_REMOVE": {
+		Type:              "*discord.Member",
+		CabinetFuncName:   "Member",
+		CabinetFuncParams: []string{"GuildID", "User.ID"},
+	},
+	"GUILD_ROLE_UPDATE": {
+		Type:              "*discord.Role",
+		CabinetFuncName:   "Role",
+		CabinetFuncParams: []string{"GuildID", "Role.ID"},
+	},
+	"GUILD_ROLE_DELETE": {
+		Type:              "*discord.Role",
+		CabinetFuncName:   "Role",
+		CabinetFuncParams: []string{"GuildID", "RoleID"},
+	},
+	"MESSAGE_UPDATE": {
+		Type:              "*discord.Message",
+		CabinetFuncName:   "Message",
+		CabinetFuncParams: []string{"ChannelID", "ID"},
+	},
+	"MESSAGE_DELETE": {
+		Type:              "*discord.Message",
+		CabinetFuncName:   "Message",
+		CabinetFuncParams: []string{"ChannelID", "ID"},
+	},
+	"PRESENCE_UPDATE": {
+		Type:              "*gateway.Presence",
+		CabinetFuncName:   "Presence",
+		CabinetFuncParams: []string{"GuildID", "User.ID"},
+	},
+}
+
+func main() {
+	events := make([]Event, 0, len(gateway.EventCreator))
+
+	for discordName, constructor := range gateway.EventCreator {
+		// this is ok to do, since the map will return nil, if there is no
+		// entry for the given name
+		event := Event{Old: eventsWithOld[discordName]}
+
+		event.GatewayName = reflect.TypeOf(constructor()).Elem().Name()
+
+		event.Name = event.GatewayName
+		if strings.HasSuffix(event.Name, "Event") {
+			event.Name = event.Name[:len(event.Name)-len("Event")]
+		}
+
+		events = append(events, event)
+	}
+
+	if err := generateEvents(events); err != nil {
+		panic(err)
+	}
+
+	if err := generateEventGenerator(events); err != nil {
+		panic(err)
+	}
+}
+
+func generateEvents(events []Event) error {
+	f, err := os.Create("events.go")
+	if err != nil {
+		return err
+	}
+
+	t, err := template.ParseFS(templateFS, "events.gotmpl")
+	if err != nil {
+		return err
+	}
+
+	return t.Execute(f, events)
+}
+
+func generateEventGenerator(events []Event) error {
+	f, err := os.Create("event_generator.go")
+	if err != nil {
+		return err
+	}
+
+	t, err := template.ParseFS(templateFS, "event_generator.gotmpl")
+	if err != nil {
+		return err
+	}
+
+	return t.Execute(f, events)
+}
