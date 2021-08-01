@@ -33,11 +33,7 @@
 // with arikawa's system.
 package event
 
-import (
-	"reflect"
-
-	"github.com/diamondburned/arikawa/v3/gateway"
-)
+import "reflect"
 
 //go:generate go run ../../tools/codegen/event/event.go
 
@@ -47,18 +43,3 @@ var (
 
 	errorType = reflect.TypeOf((*error)(nil)).Elem()
 )
-
-var eventIntents map[reflect.Type]gateway.Intents
-
-func init() {
-	eventIntents = make(map[reflect.Type]gateway.Intents, len(gateway.EventIntents))
-
-	for event, intent := range gateway.EventIntents {
-		constructor, ok := gateway.EventCreator[event]
-		if !ok {
-			continue
-		}
-
-		eventIntents[reflect.TypeOf(constructor())] = intent
-	}
-}

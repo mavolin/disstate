@@ -25,6 +25,9 @@ type (
 		// Old contains information about the Old field, or is nil if the event
 		// has no such field.
 		Old *Old
+
+		// Intents are the gateway.Intents required to receive this event.
+		Intents gateway.Intents
 	}
 
 	// Old contains information about how to fill the old field of an event.
@@ -103,9 +106,12 @@ func main() {
 	events := make([]Event, 0, len(gateway.EventCreator))
 
 	for discordName, constructor := range gateway.EventCreator {
-		// this is ok to do, since the map will return nil, if there is no
-		// entry for the given name
-		event := Event{Old: eventsWithOld[discordName]}
+		event := Event{
+			// this is ok to do, since the map will return nil, if there is no
+			// entry for the given name
+			Old:     eventsWithOld[discordName],
+			Intents: gateway.EventIntents[discordName],
+		}
 
 		event.GatewayName = reflect.TypeOf(constructor()).Elem().Name()
 
@@ -121,7 +127,11 @@ func main() {
 		panic(err)
 	}
 
-	if err := generateEventGenerator(events); err != nil {
+	if err := generateGenerator(events); err != nil {
+		panic(err)
+	}
+
+	if err := generateIntents(events); err != nil {
 		panic(err)
 	}
 }
@@ -140,13 +150,27 @@ func generateEvents(events []Event) error {
 	return t.Execute(f, events)
 }
 
-func generateEventGenerator(events []Event) error {
-	f, err := os.Create("event_generator.go")
+func generateGenerator(events []Event) error {
+	f, err := os.Create("generator.go")
 	if err != nil {
 		return err
 	}
 
-	t, err := template.ParseFS(templateFS, "event_generator.gotmpl")
+	t, err := template.ParseFS(templateFS, "generator.gotmpl")
+	if err != nil {
+		return err
+	}
+
+	return t.Execute(f, events)
+}
+
+func generateIntents(events []Event) error {
+	f, err := os.Create("intents.go")
+	if err != nil {
+		return err
+	}
+
+	t, err := template.ParseFS(templateFS, "intents.gotmpl")
 	if err != nil {
 		return err
 	}
