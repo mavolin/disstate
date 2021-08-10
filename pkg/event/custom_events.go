@@ -1,10 +1,5 @@
 package event
 
-// Close is a custom event that gets dispatched when the gateway closes.
-type Close struct {
-	*Base
-}
-
 // GuildReady is a situation-specific GuildCreate event.
 // It gets fired during Ready for all available guilds.
 // Additionally, it gets fired for all those guilds that become available after

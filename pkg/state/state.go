@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"log"
 	"reflect"
 	"sort"
 	"sync"
@@ -25,6 +26,8 @@ type State struct {
 	*state.State
 	*event.Handler
 
+	options Options
+
 	// gateways are the *gateways.gateways managed by the State.
 	// They are sorted in ascending order by their shard id.
 	gateways []*gateway.Gateway
@@ -38,7 +41,7 @@ type State struct {
 	// a different process/on a different machine.
 	numShards int
 
-	rescale     func(func(*State))
+	rescale     func(func(Options) (*State, error))
 	rescaleExec *uint32
 }
 
@@ -53,6 +56,9 @@ type Options struct {
 	// Default: gateway.OnlineStatus
 	Status gateway.Status
 	// Activity is the activity of the bot.
+	//
+	// To set this to nil when calling update during rescale, set this to an
+	// empty activity.
 	//
 	// Default: nil
 	Activity *discord.Activity
@@ -79,36 +85,51 @@ type Options struct {
 	// Rescale is the function called, if Discord closes any of the gateways
 	// with a 4011 close code aka. 'Sharding Required'.
 	//
-	// Update is the function to be called after a rescaled state was
-	// constructed.
-	// After it, the State should be opened.
+	// Usage
 	//
-	// If you don't set TotalShards, this will default to the below, unless you
-	// define a custom Rescale function.
+	// To update the state's shard manager, you must call update. All
+	// zero-value options in the Options you give to update, will be set to the
+	// options you used when initially creating the state. However, this does
+	// not apply to TotalShards, ShardIDs, and Gateways. Furthermore, setting
+	// ErrorHandler or PanicHandler will have no effect.
 	//
-	// 	func(update func(*State)) {
-	//		s, err := New(o)
+	// After calling update, you should reopen the state, by calling Open.
+	// Alternatively, you can call open individually for State.Gateways().
+	// Note, however, that you should call Sate.Handler.Open(State.Events),
+	// before calling Gateway.Open, should you choose the individual solution.
+	//
+	// During update, the state's State field will be replaced, as well as the
+	// gateways and the rescale function. The event handler will remain
+	// untouched, which is why you don't need to readd your handlers.
+	//
+	// Default
+	//
+	// If you don't set TotalShards and Gateways, this will default to the
+	// below, unless you define a custom Rescale function.
+	//
+	// 	func(update func(Options) *State) {
+	//		s, err := update(Options{})
 	//		if err != nil {
+	//			log.Println("could not update state during rescale:", err.Error())
 	//			return
 	//		}
 	//
-	// 		update(s)
-	//		_ = s.Open(context.Background())
+	//		err = s.Open(context.Background())
+	//		if err != nil {
+	//			log.Println("could not open state during rescale:", err.Error())
+	//		}
 	//	}
 	//
 	// Otherwise, you are required to set this function yourself.
 	// If you don't, New will panic.
-	//
-	// Handlers previously added to the State will not be lost and do not need
-	// to manually be readded during Rescale.
-	Rescale func(update func(*State))
+	Rescale func(update func(Options) (*State, error))
 
 	// ErrorHandler is the error handler of the event handler.
 	//
 	// Defaults to:
 	//
 	//	func(err error) {
-	//		log.Println("event handler: ", err.Error())
+	//		log.Println("event handler:", err.Error())
 	//	}
 	ErrorHandler func(error)
 	// PanicHandler is the panic handler of the event handler
@@ -145,14 +166,29 @@ func (o *Options) setDefaults() {
 	}
 
 	if o.TotalShards <= 0 && o.Rescale == nil && len(o.Gateways) == 0 {
-		o.Rescale = func(update func(*State)) {
-			s, err := New(*o)
+		o.Rescale = func(update func(Options) (*State, error)) {
+			s, err := update(Options{})
 			if err != nil {
+				log.Println("could not update state during rescale:", err.Error())
 				return
 			}
 
-			update(s)
-			_ = s.Open(context.Background())
+			if err = s.Open(context.Background()); err != nil {
+				log.Println("could not open state during rescale:", err.Error())
+				return
+			}
+		}
+	}
+
+	if o.ErrorHandler == nil {
+		o.ErrorHandler = func(err error) {
+			log.Println("event handler:", err.Error())
+		}
+	}
+
+	if o.PanicHandler == nil {
+		o.PanicHandler = func(rec interface{}) {
+			log.Printf("event handler: panic: %s\n", rec)
 		}
 	}
 }
@@ -399,17 +435,56 @@ func (s *State) RequestGuildMembers(d gateway.RequestGuildMembersData) error {
 // in every of the Manager's gateways.
 func (s *State) onShardingRequired() {
 	if atomic.CompareAndSwapUint32(s.rescaleExec, 0, 1) {
+		// make sure nobody can run apply
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
 		_ = s.Close()
+
+		*s.rescaleExec = 0
 
 		if s.rescale == nil {
 			return
 		}
 
-		update := func(newState *State) {
+		update := func(o Options) (*State, error) {
+			if len(o.Token) == 0 {
+				o.Token = s.options.Token
+			}
+
+			if len(o.Status) == 0 {
+				o.Status = s.options.Status
+			}
+
+			if o.Activity == nil {
+				o.Activity = s.options.Activity
+			} else if len(o.Activity.Name) == 0 {
+				o.Activity = nil
+			}
+
+			if o.Cabinet == nil {
+				err := s.options.Cabinet.Reset()
+				if err != nil {
+					return nil, err
+				}
+				o.Cabinet = s.options.Cabinet
+			}
+
+			if o.Rescale == nil {
+				o.Rescale = s.options.Rescale
+			}
+
+			newState, err := New(o)
+			if err != nil {
+				return nil, err
+			}
+
 			s.State = newState.State
 			s.gateways = newState.gateways
 			s.numShards = newState.numShards
 			s.rescale = newState.rescale
+
+			return s, nil
 		}
 
 		s.rescale(update)
