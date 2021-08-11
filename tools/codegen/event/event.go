@@ -4,6 +4,7 @@ package main
 
 import (
 	"embed"
+	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -103,6 +104,12 @@ var eventsWithOld = map[string]*Old{
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func run() error {
 	events := make([]Event, 0, len(gateway.EventCreator))
 
 	for discordName, constructor := range gateway.EventCreator {
@@ -123,20 +130,24 @@ func main() {
 		events = append(events, event)
 	}
 
+	log.Printf("extracted %d events\n", len(events))
+
 	if err := generateEvents(events); err != nil {
-		panic(err)
+		return err
 	}
 
 	if err := generateGenerator(events); err != nil {
-		panic(err)
+		return err
 	}
 
-	if err := generateIntents(events); err != nil {
-		panic(err)
-	}
+	log.Println("done")
+
+	return nil
 }
 
 func generateEvents(events []Event) error {
+	log.Println("generating events.go")
+
 	f, err := os.Create("events.go")
 	if err != nil {
 		return err
@@ -151,26 +162,14 @@ func generateEvents(events []Event) error {
 }
 
 func generateGenerator(events []Event) error {
+	log.Println("generating generator.go")
+
 	f, err := os.Create("generator.go")
 	if err != nil {
 		return err
 	}
 
 	t, err := template.ParseFS(templateFS, "generator.gotmpl")
-	if err != nil {
-		return err
-	}
-
-	return t.Execute(f, events)
-}
-
-func generateIntents(events []Event) error {
-	f, err := os.Create("intents.go")
-	if err != nil {
-		return err
-	}
-
-	t, err := template.ParseFS(templateFS, "intents.gotmpl")
 	if err != nil {
 		return err
 	}
