@@ -1,7 +1,9 @@
 <div align="center">
 <h1>disstate</h1>
 
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/mavolin/disstate)](https://pkg.go.dev/github.com/mavolin/disstate)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mavolin/disstate)](https://goreportcard.com/report/github.com/mavolin/disstate)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/mavolin/disstate/v4)](https://pkg.go.dev/github.com/mavolin/disstate/v4)
+[![License](https://img.shields.io/github/license/mavolin/disstate)](https://github.com/mavolin/disstate/blob/v4/LICENSE)
 </div>
 
 ---
