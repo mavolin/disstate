@@ -16,6 +16,8 @@ import (
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/state/store"
 	"github.com/diamondburned/arikawa/v3/state/store/defaultstore"
+	"github.com/diamondburned/arikawa/v3/utils/handler"
+	"github.com/diamondburned/arikawa/v3/utils/httputil"
 
 	"github.com/mavolin/disstate/v4/pkg/event"
 )
@@ -54,7 +56,7 @@ type Options struct {
 	// Status is the status of the bot.
 	//
 	// Default: gateway.OnlineStatus
-	Status gateway.Status
+	Status discord.Status
 	// Activity is the activity of the bot.
 	//
 	// To set this to nil when calling update during rescale, set this to an
@@ -81,6 +83,11 @@ type Options struct {
 	// It is an alternative to TotalShards, and ShardIDs and you shouldn't set
 	// both.
 	Gateways []*gateway.Gateway
+
+	// HTTPClient is the http client that will be used to make requests.
+	//
+	// Default: httputil.NewClient()
+	HTTPClient *httputil.Client
 
 	// Rescale is the function called, if Discord closes any of the gateways
 	// with a 4011 close code aka. 'Sharding Required'.
@@ -143,14 +150,14 @@ type Options struct {
 }
 
 func (o *Options) setDefaults() {
-	if len(o.Token) == 0 {
+	if o.Token == "" {
 		panic("state: Options.Token may not be empty")
 	}
 
 	o.Token = "Bot " + o.Token
 
-	if len(o.Status) == 0 {
-		o.Status = gateway.OnlineStatus
+	if o.Status == "" {
+		o.Status = discord.OnlineStatus
 	}
 
 	if o.Cabinet == nil {
@@ -178,6 +185,10 @@ func (o *Options) setDefaults() {
 				return
 			}
 		}
+	}
+
+	if o.HTTPClient == nil {
+		o.HTTPClient = httputil.NewClient()
 	}
 
 	if o.ErrorHandler == nil {
@@ -231,8 +242,11 @@ func New(o Options) (*State, error) {
 		}
 	}
 
+	apiClient := api.NewCustomClient(o.Token, o.HTTPClient)
+	ses := session.NewCustomSession(o.Gateways[0], apiClient, handler.New())
+
 	s := &State{
-		State:       state.NewFromSession(session.NewWithGateway(o.Gateways[0]), o.Cabinet),
+		State:       state.NewFromSession(ses, o.Cabinet),
 		gateways:    o.Gateways,
 		mutex:       new(sync.RWMutex),
 		Events:      make(chan interface{}),
@@ -426,7 +440,7 @@ func (s *State) UpdateStatus(d gateway.UpdateStatusData) error {
 // 	4. Requesting a prefix (query parameter) will return a maximum of 100
 // 	   members
 //
-// Requesting user_ids will continue to be limited to returning 100 members
+// Requesting user_ids will continue to be limited to returning 100 members.
 func (s *State) RequestGuildMembers(d gateway.RequestGuildMembersData) error {
 	return s.FromGuildID(d.GuildIDs[0]).RequestGuildMembers(d)
 }
@@ -448,17 +462,17 @@ func (s *State) onShardingRequired() {
 		}
 
 		update := func(o Options) (*State, error) {
-			if len(o.Token) == 0 {
+			if o.Token == "" {
 				o.Token = s.options.Token
 			}
 
-			if len(o.Status) == 0 {
+			if o.Status == "" {
 				o.Status = s.options.Status
 			}
 
 			if o.Activity == nil {
 				o.Activity = s.options.Activity
-			} else if len(o.Activity.Name) == 0 {
+			} else if o.Activity.Name == "" {
 				o.Activity = nil
 			}
 

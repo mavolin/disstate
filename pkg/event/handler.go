@@ -19,7 +19,7 @@ var (
 	ErrInvalidMiddleware = errors.New("state: the passed middleware does not match the type of the handler")
 
 	// Filtered should be returned if a filter blocks an event.
-	Filtered = errors.New("filtered") //nolint:golint,stylecheck
+	Filtered = errors.New("filtered") //nolint:revive
 )
 
 type (
@@ -365,7 +365,7 @@ func (h *Handler) Call(e interface{}) {
 
 	abort := h.callGlobalMiddlewares(ev, et)
 	ev = ev.Elem() // from now functions only take elem
-	direct := false
+	var direct bool
 
 	switch e := e.(type) {
 	case *Ready:
@@ -399,8 +399,8 @@ func (h *Handler) Call(e interface{}) {
 // ev must not be a pointer, however, et is expected to be the pointerized type
 // of ev.
 //
-// direct specifies, whether or not interface and Base handlers should be
-// called for the event as well.
+// direct specifies, whether interface and Base handlers should be called for
+// the event as well.
 func (h *Handler) call(ev reflect.Value, et reflect.Type, direct bool) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
@@ -474,7 +474,7 @@ func (h *Handler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) bool 
 		var (
 			next  globalMiddleware
 			typ   reflect.Type
-			index *int = nil
+			index *int
 		)
 
 		if im < len(interfaceMiddlewares) {
@@ -597,7 +597,6 @@ func (h *Handler) handleGuildCreate(e *GuildCreate) interface{} {
 	} else if _, ok = h.unavailableGuilds[e.ID]; ok {
 		delete(h.unavailableGuilds, e.ID)
 		return &GuildAvailable{GuildCreate: e}
-
 	}
 
 	// We don't know this guild, hence it's new.

@@ -9,32 +9,10 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 	base := NewBase()
 
 	switch src := src.(type) {
-	case *gateway.GuildRoleDeleteEvent:
-		old, _ := h.astate.Cabinet.Role(src.GuildID, src.RoleID)
-		return &GuildRoleDelete{
-			Base:                 base,
-			GuildRoleDeleteEvent: src,
-			Old:                  old,
-		}
-	case *gateway.MessageCreateEvent:
-		return &MessageCreate{
-			Base:               base,
-			MessageCreateEvent: src,
-		}
-	case *gateway.MessageReactionAddEvent:
-		return &MessageReactionAdd{
-			Base:                    base,
-			MessageReactionAddEvent: src,
-		}
-	case *gateway.UserSettingsUpdateEvent:
-		return &UserSettingsUpdate{
-			Base:                    base,
-			UserSettingsUpdateEvent: src,
-		}
-	case *gateway.GuildBanAddEvent:
-		return &GuildBanAdd{
-			Base:             base,
-			GuildBanAddEvent: src,
+	case *gateway.WebhooksUpdateEvent:
+		return &WebhooksUpdate{
+			Base:                base,
+			WebhooksUpdateEvent: src,
 		}
 	case *gateway.ChannelDeleteEvent:
 		old, _ := h.astate.Cabinet.Channel(src.ID)
@@ -43,60 +21,28 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			ChannelDeleteEvent: src,
 			Old:                old,
 		}
-	case *gateway.MessageReactionRemoveEmojiEvent:
-		return &MessageReactionRemoveEmoji{
-			Base:                            base,
-			MessageReactionRemoveEmojiEvent: src,
+	case *gateway.GuildIntegrationsUpdateEvent:
+		return &GuildIntegrationsUpdate{
+			Base:                         base,
+			GuildIntegrationsUpdateEvent: src,
 		}
-	case *gateway.SessionsReplaceEvent:
-		return &SessionsReplace{
+	case *gateway.GuildRoleCreateEvent:
+		return &GuildRoleCreate{
 			Base:                 base,
-			SessionsReplaceEvent: src,
+			GuildRoleCreateEvent: src,
 		}
-	case *gateway.WebhooksUpdateEvent:
-		return &WebhooksUpdate{
-			Base:                base,
-			WebhooksUpdateEvent: src,
-		}
-	case *gateway.UserNoteUpdateEvent:
-		return &UserNoteUpdate{
-			Base:                base,
-			UserNoteUpdateEvent: src,
-		}
-	case *gateway.RelationshipAddEvent:
-		return &RelationshipAdd{
+	case *gateway.GuildRoleUpdateEvent:
+		old, _ := h.astate.Cabinet.Role(src.GuildID, src.Role.ID)
+		return &GuildRoleUpdate{
 			Base:                 base,
-			RelationshipAddEvent: src,
-		}
-	case *gateway.ChannelUpdateEvent:
-		old, _ := h.astate.Cabinet.Channel(src.ID)
-		return &ChannelUpdate{
-			Base:               base,
-			ChannelUpdateEvent: src,
-			Old:                old,
-		}
-	case *gateway.GuildMemberListUpdate:
-		return &GuildMemberListUpdate{
-			Base:                  base,
-			GuildMemberListUpdate: src,
-		}
-	case *gateway.InviteDeleteEvent:
-		return &InviteDelete{
-			Base:              base,
-			InviteDeleteEvent: src,
+			GuildRoleUpdateEvent: src,
+			Old:                  old,
 		}
 	case *gateway.MessageUpdateEvent:
 		old, _ := h.astate.Cabinet.Message(src.ChannelID, src.ID)
 		return &MessageUpdate{
 			Base:               base,
 			MessageUpdateEvent: src,
-			Old:                old,
-		}
-	case *gateway.MessageDeleteEvent:
-		old, _ := h.astate.Cabinet.Message(src.ChannelID, src.ID)
-		return &MessageDelete{
-			Base:               base,
-			MessageDeleteEvent: src,
 			Old:                old,
 		}
 	case *gateway.PresenceUpdateEvent:
@@ -106,96 +52,25 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			PresenceUpdateEvent: src,
 			Old:                 old,
 		}
-	case *gateway.ApplicationCommandUpdateEvent:
-		return &ApplicationCommandUpdate{
-			Base:                          base,
-			ApplicationCommandUpdateEvent: src,
-		}
-	case *gateway.GuildDeleteEvent:
-		old, _ := h.astate.Cabinet.Guild(src.ID)
-		return &GuildDelete{
-			Base:             base,
-			GuildDeleteEvent: src,
-			Old:              old,
-		}
-	case *gateway.ChannelPinsUpdateEvent:
-		return &ChannelPinsUpdate{
-			Base:                   base,
-			ChannelPinsUpdateEvent: src,
-		}
-	case *gateway.GuildBanRemoveEvent:
-		return &GuildBanRemove{
-			Base:                base,
-			GuildBanRemoveEvent: src,
-		}
-	case *gateway.GuildIntegrationsUpdateEvent:
-		return &GuildIntegrationsUpdate{
-			Base:                         base,
-			GuildIntegrationsUpdateEvent: src,
-		}
-	case *gateway.GuildMemberAddEvent:
-		return &GuildMemberAdd{
-			Base:                base,
-			GuildMemberAddEvent: src,
-		}
-	case *gateway.InviteCreateEvent:
-		return &InviteCreate{
-			Base:              base,
-			InviteCreateEvent: src,
-		}
-	case *gateway.PresencesReplaceEvent:
-		return &PresencesReplace{
+	case *gateway.VoiceStateUpdateEvent:
+		return &VoiceStateUpdate{
 			Base:                  base,
-			PresencesReplaceEvent: src,
+			VoiceStateUpdateEvent: src,
 		}
-	case *gateway.UserUpdateEvent:
-		return &UserUpdate{
-			Base:            base,
-			UserUpdateEvent: src,
+	case *gateway.RelationshipAddEvent:
+		return &RelationshipAdd{
+			Base:                 base,
+			RelationshipAddEvent: src,
 		}
 	case *gateway.HelloEvent:
 		return &Hello{
 			Base:       base,
 			HelloEvent: src,
 		}
-	case *gateway.ChannelCreateEvent:
-		return &ChannelCreate{
-			Base:               base,
-			ChannelCreateEvent: src,
-		}
-	case *gateway.ChannelUnreadUpdateEvent:
-		return &ChannelUnreadUpdate{
-			Base:                     base,
-			ChannelUnreadUpdateEvent: src,
-		}
-	case *gateway.TypingStartEvent:
-		return &TypingStart{
+	case *gateway.GuildCreateEvent:
+		return &GuildCreate{
 			Base:             base,
-			TypingStartEvent: src,
-		}
-	case *gateway.InteractionCreateEvent:
-		return &InteractionCreate{
-			Base:                   base,
-			InteractionCreateEvent: src,
-		}
-	case *gateway.InvalidSessionEvent:
-		return &InvalidSession{
-			Base:                base,
-			InvalidSessionEvent: src,
-		}
-	case *gateway.GuildMemberRemoveEvent:
-		old, _ := h.astate.Cabinet.Member(src.GuildID, src.User.ID)
-		return &GuildMemberRemove{
-			Base:                   base,
-			GuildMemberRemoveEvent: src,
-			Old:                    old,
-		}
-	case *gateway.GuildRoleUpdateEvent:
-		old, _ := h.astate.Cabinet.Role(src.GuildID, src.Role.ID)
-		return &GuildRoleUpdate{
-			Base:                 base,
-			GuildRoleUpdateEvent: src,
-			Old:                  old,
+			GuildCreateEvent: src,
 		}
 	case *gateway.GuildUpdateEvent:
 		old, _ := h.astate.Cabinet.Guild(src.ID)
@@ -204,72 +79,15 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildUpdateEvent: src,
 			Old:              old,
 		}
-	case *gateway.ResumedEvent:
-		return &Resumed{
-			Base:         base,
-			ResumedEvent: src,
-		}
-	case *gateway.GuildCreateEvent:
-		return &GuildCreate{
-			Base:             base,
-			GuildCreateEvent: src,
-		}
-	case *gateway.GuildEmojisUpdateEvent:
-		return &GuildEmojisUpdate{
-			Base:                   base,
-			GuildEmojisUpdateEvent: src,
-		}
-	case *gateway.MessageDeleteBulkEvent:
-		return &MessageDeleteBulk{
-			Base:                   base,
-			MessageDeleteBulkEvent: src,
-		}
-	case *gateway.MessageReactionRemoveAllEvent:
-		return &MessageReactionRemoveAll{
-			Base:                          base,
-			MessageReactionRemoveAllEvent: src,
-		}
-	case *gateway.MessageAckEvent:
-		return &MessageAck{
-			Base:            base,
-			MessageAckEvent: src,
-		}
-	case *gateway.VoiceStateUpdateEvent:
-		return &VoiceStateUpdate{
+	case *gateway.GuildMemberListUpdate:
+		return &GuildMemberListUpdate{
 			Base:                  base,
-			VoiceStateUpdateEvent: src,
+			GuildMemberListUpdate: src,
 		}
-	case *gateway.ReadyEvent:
-		return &Ready{
-			Base:       base,
-			ReadyEvent: src,
-		}
-	case *gateway.UserGuildSettingsUpdateEvent:
-		return &UserGuildSettingsUpdate{
-			Base:                         base,
-			UserGuildSettingsUpdateEvent: src,
-		}
-	case *gateway.GuildMemberUpdateEvent:
-		old, _ := h.astate.Cabinet.Member(src.GuildID, src.User.ID)
-		return &GuildMemberUpdate{
-			Base:                   base,
-			GuildMemberUpdateEvent: src,
-			Old:                    old,
-		}
-	case *gateway.GuildMembersChunkEvent:
-		return &GuildMembersChunk{
-			Base:                   base,
-			GuildMembersChunkEvent: src,
-		}
-	case *gateway.GuildRoleCreateEvent:
-		return &GuildRoleCreate{
-			Base:                 base,
-			GuildRoleCreateEvent: src,
-		}
-	case *gateway.MessageReactionRemoveEvent:
-		return &MessageReactionRemove{
-			Base:                       base,
-			MessageReactionRemoveEvent: src,
+	case *gateway.InviteCreateEvent:
+		return &InviteCreate{
+			Base:              base,
+			InviteCreateEvent: src,
 		}
 	case *gateway.VoiceServerUpdateEvent:
 		return &VoiceServerUpdate{
@@ -281,10 +99,192 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			Base:                    base,
 			RelationshipRemoveEvent: src,
 		}
+	case *gateway.ResumedEvent:
+		return &Resumed{
+			Base:         base,
+			ResumedEvent: src,
+		}
+	case *gateway.ChannelPinsUpdateEvent:
+		return &ChannelPinsUpdate{
+			Base:                   base,
+			ChannelPinsUpdateEvent: src,
+		}
+	case *gateway.GuildBanRemoveEvent:
+		return &GuildBanRemove{
+			Base:                base,
+			GuildBanRemoveEvent: src,
+		}
+	case *gateway.ChannelUpdateEvent:
+		old, _ := h.astate.Cabinet.Channel(src.ID)
+		return &ChannelUpdate{
+			Base:               base,
+			ChannelUpdateEvent: src,
+			Old:                old,
+		}
+	case *gateway.GuildDeleteEvent:
+		old, _ := h.astate.Cabinet.Guild(src.ID)
+		return &GuildDelete{
+			Base:             base,
+			GuildDeleteEvent: src,
+			Old:              old,
+		}
+	case *gateway.GuildMembersChunkEvent:
+		return &GuildMembersChunk{
+			Base:                   base,
+			GuildMembersChunkEvent: src,
+		}
+	case *gateway.UserSettingsUpdateEvent:
+		return &UserSettingsUpdate{
+			Base:                    base,
+			UserSettingsUpdateEvent: src,
+		}
+	case *gateway.ChannelCreateEvent:
+		return &ChannelCreate{
+			Base:               base,
+			ChannelCreateEvent: src,
+		}
+	case *gateway.ChannelUnreadUpdateEvent:
+		return &ChannelUnreadUpdate{
+			Base:                     base,
+			ChannelUnreadUpdateEvent: src,
+		}
+	case *gateway.GuildEmojisUpdateEvent:
+		return &GuildEmojisUpdate{
+			Base:                   base,
+			GuildEmojisUpdateEvent: src,
+		}
+	case *gateway.GuildRoleDeleteEvent:
+		old, _ := h.astate.Cabinet.Role(src.GuildID, src.RoleID)
+		return &GuildRoleDelete{
+			Base:                 base,
+			GuildRoleDeleteEvent: src,
+			Old:                  old,
+		}
+	case *gateway.MessageReactionRemoveAllEvent:
+		return &MessageReactionRemoveAll{
+			Base:                          base,
+			MessageReactionRemoveAllEvent: src,
+		}
+	case *gateway.SessionsReplaceEvent:
+		return &SessionsReplace{
+			Base:                 base,
+			SessionsReplaceEvent: src,
+		}
+	case *gateway.TypingStartEvent:
+		return &TypingStart{
+			Base:             base,
+			TypingStartEvent: src,
+		}
+	case *gateway.UserUpdateEvent:
+		return &UserUpdate{
+			Base:            base,
+			UserUpdateEvent: src,
+		}
+	case *gateway.InvalidSessionEvent:
+		return &InvalidSession{
+			Base:                base,
+			InvalidSessionEvent: src,
+		}
+	case *gateway.GuildBanAddEvent:
+		return &GuildBanAdd{
+			Base:             base,
+			GuildBanAddEvent: src,
+		}
+	case *gateway.GuildMemberAddEvent:
+		return &GuildMemberAdd{
+			Base:                base,
+			GuildMemberAddEvent: src,
+		}
+	case *gateway.MessageCreateEvent:
+		return &MessageCreate{
+			Base:               base,
+			MessageCreateEvent: src,
+		}
+	case *gateway.MessageReactionAddEvent:
+		return &MessageReactionAdd{
+			Base:                    base,
+			MessageReactionAddEvent: src,
+		}
+	case *gateway.MessageReactionRemoveEvent:
+		return &MessageReactionRemove{
+			Base:                       base,
+			MessageReactionRemoveEvent: src,
+		}
+	case *gateway.InteractionCreateEvent:
+		return &InteractionCreate{
+			Base:                   base,
+			InteractionCreateEvent: src,
+		}
+	case *gateway.UserGuildSettingsUpdateEvent:
+		return &UserGuildSettingsUpdate{
+			Base:                         base,
+			UserGuildSettingsUpdateEvent: src,
+		}
+	case *gateway.ReadyEvent:
+		return &Ready{
+			Base:       base,
+			ReadyEvent: src,
+		}
+	case *gateway.GuildMemberRemoveEvent:
+		old, _ := h.astate.Cabinet.Member(src.GuildID, src.User.ID)
+		return &GuildMemberRemove{
+			Base:                   base,
+			GuildMemberRemoveEvent: src,
+			Old:                    old,
+		}
+	case *gateway.InviteDeleteEvent:
+		return &InviteDelete{
+			Base:              base,
+			InviteDeleteEvent: src,
+		}
+	case *gateway.MessageDeleteEvent:
+		old, _ := h.astate.Cabinet.Message(src.ChannelID, src.ID)
+		return &MessageDelete{
+			Base:               base,
+			MessageDeleteEvent: src,
+			Old:                old,
+		}
+	case *gateway.MessageDeleteBulkEvent:
+		return &MessageDeleteBulk{
+			Base:                   base,
+			MessageDeleteBulkEvent: src,
+		}
+	case *gateway.MessageReactionRemoveEmojiEvent:
+		return &MessageReactionRemoveEmoji{
+			Base:                            base,
+			MessageReactionRemoveEmojiEvent: src,
+		}
+	case *gateway.PresencesReplaceEvent:
+		return &PresencesReplace{
+			Base:                  base,
+			PresencesReplaceEvent: src,
+		}
+	case *gateway.ApplicationCommandUpdateEvent:
+		return &ApplicationCommandUpdate{
+			Base:                          base,
+			ApplicationCommandUpdateEvent: src,
+		}
 	case *gateway.ReadySupplementalEvent:
 		return &ReadySupplemental{
 			Base:                   base,
 			ReadySupplementalEvent: src,
+		}
+	case *gateway.GuildMemberUpdateEvent:
+		old, _ := h.astate.Cabinet.Member(src.GuildID, src.User.ID)
+		return &GuildMemberUpdate{
+			Base:                   base,
+			GuildMemberUpdateEvent: src,
+			Old:                    old,
+		}
+	case *gateway.MessageAckEvent:
+		return &MessageAck{
+			Base:            base,
+			MessageAckEvent: src,
+		}
+	case *gateway.UserNoteUpdateEvent:
+		return &UserNoteUpdate{
+			Base:                base,
+			UserNoteUpdateEvent: src,
 		}
 	default:
 		return nil

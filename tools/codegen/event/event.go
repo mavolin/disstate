@@ -97,7 +97,7 @@ var eventsWithOld = map[string]*Old{
 		CabinetFuncParams: []string{"ChannelID", "ID"},
 	},
 	"PRESENCE_UPDATE": {
-		Type:              "*gateway.Presence",
+		Type:              "*discord.Presence",
 		CabinetFuncName:   "Presence",
 		CabinetFuncParams: []string{"GuildID", "User.ID"},
 	},
@@ -123,9 +123,7 @@ func run() error {
 		event.GatewayName = reflect.TypeOf(constructor()).Elem().Name()
 
 		event.Name = event.GatewayName
-		if strings.HasSuffix(event.Name, "Event") {
-			event.Name = event.Name[:len(event.Name)-len("Event")]
-		}
+		event.Name = strings.TrimSuffix(event.GatewayName, "Event")
 
 		events = append(events, event)
 	}
