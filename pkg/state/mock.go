@@ -13,6 +13,7 @@ func NewMocker(t *testing.T) (*dismock.Mocker, *State) {
 	m := dismock.New(t)
 
 	s, err := New(Options{
+		Token:      "a totally valid token",
 		Cabinet:    store.NoopCabinet,
 		HTTPClient: m.HTTPClient(),
 		Gateways:   []*gateway.Gateway{gateway.NewCustomGateway("", "")},
@@ -30,6 +31,7 @@ func CloneMocker(m *dismock.Mocker, t *testing.T) (*dismock.Mocker, *State) {
 	m = m.Clone(t)
 
 	s, err := New(Options{
+		Token:      "trust me, I'm real",
 		Cabinet:    store.NoopCabinet,
 		HTTPClient: m.HTTPClient(),
 		Gateways:   []*gateway.Gateway{gateway.NewCustomGateway("", "")},

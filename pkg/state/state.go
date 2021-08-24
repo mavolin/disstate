@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"errors"
 	"log"
 	"reflect"
 	"sort"
@@ -149,9 +150,9 @@ type Options struct {
 	PanicHandler func(rec interface{})
 }
 
-func (o *Options) setDefaults() {
+func (o *Options) setDefaults() error {
 	if o.Token == "" {
-		panic("state: Options.Token may not be empty")
+		return errors.New("state: Options.Token may not be empty")
 	}
 
 	o.Token = "Bot " + o.Token
@@ -202,11 +203,15 @@ func (o *Options) setDefaults() {
 			log.Printf("event handler: panic: %s\n", rec)
 		}
 	}
+
+	return nil
 }
 
 // New creates a new *State using as many gateways as recommended by Discord.
 func New(o Options) (*State, error) {
-	o.setDefaults()
+	if err := o.setDefaults(); err != nil {
+		return nil, err
+	}
 
 	if len(o.Gateways) == 0 {
 		botData, err := gateway.BotURL(o.Token)
