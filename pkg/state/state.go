@@ -250,12 +250,17 @@ func New(o Options) (*State, error) {
 	apiClient := api.NewCustomClient(o.Token, o.HTTPClient)
 	ses := session.NewCustomSession(o.Gateways[0], apiClient, handler.New())
 
+	numShards := 1
+	if o.Gateways[0].Identifier.Shard != nil {
+		numShards = o.Gateways[0].Identifier.Shard.NumShards()
+	}
+
 	s := &State{
 		State:       state.NewFromSession(ses, o.Cabinet),
 		gateways:    o.Gateways,
 		mutex:       new(sync.RWMutex),
 		Events:      make(chan interface{}),
-		numShards:   o.Gateways[0].Identifier.Shard.NumShards(),
+		numShards:   numShards,
 		rescale:     o.Rescale,
 		rescaleExec: new(uint32),
 	}
