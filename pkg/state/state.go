@@ -77,6 +77,8 @@ type Options struct {
 	// ShardIDs are the shard ids this State instance will use.
 	//
 	// If setting this, you also need to specify the TotalShards.
+	//
+	// Default: 0..TotalShards
 	ShardIDs []int
 
 	// Gateways are the initial gateways to use.
@@ -132,7 +134,7 @@ type Options struct {
 
 	// ErrorHandler is the error handler of the event handler.
 	//
-	// Defaults to:
+	// Default
 	//
 	//	func(err error) {
 	//		log.Println("event handler:", err.Error())
@@ -140,7 +142,7 @@ type Options struct {
 	ErrorHandler func(error)
 	// PanicHandler is the panic handler of the event handler
 	//
-	// Defaults to:
+	// Default
 	//
 	//	func(rec interface{}) {
 	//		log.Printf("event handler: panic: %s\n", rec)
