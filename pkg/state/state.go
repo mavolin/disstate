@@ -77,7 +77,6 @@ type Options struct {
 	// ShardIDs are the shard ids this State instance will use.
 	//
 	// If setting this, you also need to specify the TotalShards.
-	// If ShardIDs is set, but TotalShards is not, New will panic.
 	ShardIDs []int
 
 	// Gateways are the initial gateways to use.
@@ -129,7 +128,6 @@ type Options struct {
 	//	}
 	//
 	// Otherwise, you are required to set this function yourself.
-	// If you don't, New will panic.
 	Rescale func(update func(Options) (*State, error))
 
 	// ErrorHandler is the error handler of the event handler.
@@ -166,11 +164,11 @@ func (o *Options) setDefaults() error {
 	}
 
 	if len(o.ShardIDs) > 0 && o.TotalShards <= 0 {
-		panic("state: setting Options.ShardIDs requires Options.TotalShards to be set as well")
+		return errors.New("state: setting Options.ShardIDs requires Options.TotalShards to be set as well")
 	}
 
 	if o.TotalShards > 0 && o.Rescale == nil {
-		panic("state: setting Options.TotalShards requires Options.Rescale to be set as well")
+		return errors.New("state: setting Options.TotalShards requires Options.Rescale to be set as well")
 	}
 
 	if o.TotalShards <= 0 && o.Rescale == nil && len(o.Gateways) == 0 {
