@@ -96,25 +96,26 @@ type Options struct {
 	//
 	// Usage
 	//
-	// To update the state's shard manager, you must call update. All
-	// zero-value options in the Options you give to update, will be set to the
-	// options you used when initially creating the state. However, this does
-	// not apply to TotalShards, ShardIDs, and Gateways. Furthermore, setting
-	// ErrorHandler or PanicHandler will have no effect.
+	// To update the state's shard manager, you must call update.
+	// All zero-value options in the Options you give to update, will be set to
+	// the options you used when initially creating the state.
+	// This does not apply to TotalShards, ShardIDs, and Gateways, which will
+	// assume the defaults described in their respective documentation.
+	// Furthermore, setting ErrorHandler or PanicHandler will have no effect.
 	//
 	// After calling update, you should reopen the state, by calling Open.
 	// Alternatively, you can call open individually for State.Gateways().
-	// Note, however, that you should call Sate.Handler.Open(State.Events),
-	// before calling Gateway.Open, should you choose the individual solution.
+	// Note, however, that you should call Sate.Handler.Open(State.Events) once
+	// before calling Gateway.Open, should you choose to open individually.
 	//
 	// During update, the state's State field will be replaced, as well as the
 	// gateways and the rescale function. The event handler will remain
-	// untouched, which is why you don't need to readd your handlers.
+	// untouched which is why you don't need to readd your handlers.
 	//
 	// Default
 	//
-	// If you don't set TotalShards and Gateways, this will default to the
-	// below, unless you define a custom Rescale function.
+	// If you set neither TotalShards nor Gateways, this will default to the
+	// below unless you define a custom Rescale function.
 	//
 	// 	func(update func(Options) *State) {
 	//		s, err := update(Options{})
@@ -276,9 +277,9 @@ func New(o Options) (*State, error) {
 	return s, nil
 }
 
-// FromShardID returns the *gateway.Gateway with the given shard id, or nil if
-// the shard manager has no gateways with the given id.
-func (s *State) FromShardID(shardID int) *gateway.Gateway {
+// GatewayFromShardID returns the *gateway.Gateway with the given shard id, or
+// nil if the shard manager has no gateways with the given id.
+func (s *State) GatewayFromShardID(shardID int) *gateway.Gateway {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -299,10 +300,10 @@ func (s *State) FromShardID(shardID int) *gateway.Gateway {
 	return nil
 }
 
-// FromGuildID returns the *gateway.Gateway managing the guild with the passed
-// ID, or nil if this Manager does not manage this guild.
-func (s *State) FromGuildID(guildID discord.GuildID) *gateway.Gateway {
-	return s.FromShardID(int(uint64(guildID>>22) % uint64(s.numShards)))
+// GatewayFromGuildID returns the *gateway.Gateway managing the guild with the
+// passed ID, or nil if this Manager does not manage this guild.
+func (s *State) GatewayFromGuildID(guildID discord.GuildID) *gateway.Gateway {
+	return s.GatewayFromShardID(int(uint64(guildID>>22) % uint64(s.numShards)))
 }
 
 // Apply applies the given function to all gateways handled by this Manager.
@@ -385,7 +386,7 @@ func (s *State) Open(ctx context.Context) error {
 	errs = append(errs, err)
 
 	for shardID := 0; shardID < err.(*ShardError).ShardID; shardID++ {
-		if shard := s.FromShardID(shardID); shard != nil { // exists?
+		if shard := s.GatewayFromShardID(shardID); shard != nil { // exists?
 			if err := shard.Close(); err != nil {
 				errs = append(errs, err)
 			}
@@ -452,7 +453,7 @@ func (s *State) UpdateStatus(d gateway.UpdateStatusData) error {
 //
 // Requesting user_ids will continue to be limited to returning 100 members.
 func (s *State) RequestGuildMembers(d gateway.RequestGuildMembersData) error {
-	return s.FromGuildID(d.GuildIDs[0]).RequestGuildMembers(d)
+	return s.GatewayFromGuildID(d.GuildIDs[0]).RequestGuildMembers(d)
 }
 
 // onShardingRequired is the function stored as Gateway.OnShardingRequired
