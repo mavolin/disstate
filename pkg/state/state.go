@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"math"
 	"reflect"
 	"sort"
 	"sync"
@@ -182,7 +183,10 @@ func (o *Options) setDefaults() error {
 				return
 			}
 
-			if err = s.Open(context.Background()); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), s.CalcOpenTimeout(2*time.Second))
+			defer cancel()
+
+			if err = s.Open(ctx); err != nil {
 				log.Println("could not open state during rescale:", err.Error())
 				return
 			}
@@ -375,6 +379,11 @@ func (s *State) AddIntents(i gateway.Intents) {
 // Open opens all gateways handled by this Manager.
 // If an error occurs, Open will attempt to close all previously opened
 // gateways before returning.
+//
+// When using timeouts for the passed context, keep in mind that there are rate
+// limit between each gateway's call to open.
+// State.CalcOpenTimeout can be used to calculate timeouts that take into
+// account rate limits between each call.
 func (s *State) Open(ctx context.Context) error {
 	s.Handler.Open(s.Events)
 
@@ -399,6 +408,33 @@ func (s *State) Open(ctx context.Context) error {
 	}
 
 	return errs
+}
+
+// CalcOpenTimeout returns the time.Duration it would need to open all of the
+// state's gateways if each individual call to gateway.Gateway.Open is allowed
+// to take singleTimeout long.
+//
+// It takes into account both the global aka. 24h rate limit as well as the
+// limit between each call to open.
+// It requires that the full global burst is enough to open all sessions, so
+// that if the current global burst is insufficient, waiting for the next burst
+// will allow all calls to open to be executed.
+func (s *State) CalcOpenTimeout(singleTimeout time.Duration) (d time.Duration) {
+	id := s.gateways[0].Identifier
+
+	globalReservation := id.IdentifyGlobalLimit.ReserveN(time.Now(), len(s.gateways))
+	d += globalReservation.Delay()
+	globalReservation.Cancel()
+
+	singleReservation := id.IdentifyShortLimit.Reserve()
+	d += singleReservation.Delay()
+	singleReservation.Cancel()
+
+	qtyBursts := int(math.Ceil(float64(id.IdentifyShortLimit.Burst())))
+	d += time.Duration(qtyBursts) * time.Duration(1/id.IdentifyShortLimit.Limit()) * time.Second
+	d += time.Duration(len(s.gateways)) * singleTimeout
+
+	return d
 }
 
 // Close closes all gateways handled by this Manager.
