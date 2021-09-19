@@ -214,8 +214,10 @@ func New(o Options) (*State, error) {
 		return nil, err
 	}
 
+	apiClient := api.NewCustomClient(o.Token, o.HTTPClient)
+
 	if len(o.Gateways) == 0 {
-		botData, err := gateway.BotURL(o.Token)
+		botData, err := apiClient.BotURL()
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +250,6 @@ func New(o Options) (*State, error) {
 		}
 	}
 
-	apiClient := api.NewCustomClient(o.Token, o.HTTPClient)
 	ses := session.NewCustomSession(o.Gateways[0], apiClient, handler.New())
 
 	numShards := 1
