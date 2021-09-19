@@ -15,7 +15,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			WebhooksUpdateEvent: src,
 		}
 	case *gateway.ChannelDeleteEvent:
-		old, _ := h.astate.Cabinet.Channel(src.ID)
+		old, _ := h.state.Cabinet.Channel(src.ID)
 		return &ChannelDelete{
 			Base:               base,
 			ChannelDeleteEvent: src,
@@ -32,21 +32,21 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildRoleCreateEvent: src,
 		}
 	case *gateway.GuildRoleUpdateEvent:
-		old, _ := h.astate.Cabinet.Role(src.GuildID, src.Role.ID)
+		old, _ := h.state.Cabinet.Role(src.GuildID, src.Role.ID)
 		return &GuildRoleUpdate{
 			Base:                 base,
 			GuildRoleUpdateEvent: src,
 			Old:                  old,
 		}
 	case *gateway.MessageUpdateEvent:
-		old, _ := h.astate.Cabinet.Message(src.ChannelID, src.ID)
+		old, _ := h.state.Cabinet.Message(src.ChannelID, src.ID)
 		return &MessageUpdate{
 			Base:               base,
 			MessageUpdateEvent: src,
 			Old:                old,
 		}
 	case *gateway.PresenceUpdateEvent:
-		old, _ := h.astate.Cabinet.Presence(src.GuildID, src.User.ID)
+		old, _ := h.state.Cabinet.Presence(src.GuildID, src.User.ID)
 		return &PresenceUpdate{
 			Base:                base,
 			PresenceUpdateEvent: src,
@@ -73,7 +73,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildCreateEvent: src,
 		}
 	case *gateway.GuildUpdateEvent:
-		old, _ := h.astate.Cabinet.Guild(src.ID)
+		old, _ := h.state.Cabinet.Guild(src.ID)
 		return &GuildUpdate{
 			Base:             base,
 			GuildUpdateEvent: src,
@@ -115,14 +115,14 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildBanRemoveEvent: src,
 		}
 	case *gateway.ChannelUpdateEvent:
-		old, _ := h.astate.Cabinet.Channel(src.ID)
+		old, _ := h.state.Cabinet.Channel(src.ID)
 		return &ChannelUpdate{
 			Base:               base,
 			ChannelUpdateEvent: src,
 			Old:                old,
 		}
 	case *gateway.GuildDeleteEvent:
-		old, _ := h.astate.Cabinet.Guild(src.ID)
+		old, _ := h.state.Cabinet.Guild(src.ID)
 		return &GuildDelete{
 			Base:             base,
 			GuildDeleteEvent: src,
@@ -154,7 +154,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildEmojisUpdateEvent: src,
 		}
 	case *gateway.GuildRoleDeleteEvent:
-		old, _ := h.astate.Cabinet.Role(src.GuildID, src.RoleID)
+		old, _ := h.state.Cabinet.Role(src.GuildID, src.RoleID)
 		return &GuildRoleDelete{
 			Base:                 base,
 			GuildRoleDeleteEvent: src,
@@ -226,7 +226,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			ReadyEvent: src,
 		}
 	case *gateway.GuildMemberRemoveEvent:
-		old, _ := h.astate.Cabinet.Member(src.GuildID, src.User.ID)
+		old, _ := h.state.Cabinet.Member(src.GuildID, src.User.ID)
 		return &GuildMemberRemove{
 			Base:                   base,
 			GuildMemberRemoveEvent: src,
@@ -238,7 +238,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			InviteDeleteEvent: src,
 		}
 	case *gateway.MessageDeleteEvent:
-		old, _ := h.astate.Cabinet.Message(src.ChannelID, src.ID)
+		old, _ := h.state.Cabinet.Message(src.ChannelID, src.ID)
 		return &MessageDelete{
 			Base:               base,
 			MessageDeleteEvent: src,
@@ -270,7 +270,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			ReadySupplementalEvent: src,
 		}
 	case *gateway.GuildMemberUpdateEvent:
-		old, _ := h.astate.Cabinet.Member(src.GuildID, src.User.ID)
+		old, _ := h.state.Cabinet.Member(src.GuildID, src.User.ID)
 		return &GuildMemberUpdate{
 			Base:                   base,
 			GuildMemberUpdateEvent: src,

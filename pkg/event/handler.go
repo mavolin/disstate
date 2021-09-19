@@ -28,8 +28,8 @@ type (
 	// For a detailed list of differences of arikawa and disstate's event
 	// handling refer to the package doc.
 	Handler struct {
-		astate *state.State
-		dstate reflect.Value
+		state  *state.State
+		rstate reflect.Value
 
 		globalMiddlewares map[reflect.Type][]globalMiddleware
 		handlers          map[reflect.Type][]*handlerMeta
@@ -82,8 +82,8 @@ type (
 // It panics if the reflect.Value is not of the correct type.
 func NewHandler(stateVal reflect.Value) *Handler {
 	return &Handler{
-		astate:            stateVal.Elem().FieldByName("State").Interface().(*state.State),
-		dstate:            stateVal,
+		state:             stateVal.Elem().FieldByName("State").Interface().(*state.State),
+		rstate:            stateVal,
 		globalMiddlewares: make(map[reflect.Type][]globalMiddleware),
 		handlers:          make(map[reflect.Type][]*handlerMeta),
 		ErrorHandler:      func(error) {},
@@ -112,7 +112,7 @@ func (h *Handler) Open(events <-chan interface{}) {
 				// prevent premature closer between here and when the first handler is called
 				h.handlerWG.Add(1)
 
-				h.astate.Session.Call(gatewayEvent) // trigger state update
+				h.state.Session.Call(gatewayEvent) // trigger state update
 
 				go func() {
 					h.Call(e)
@@ -235,7 +235,7 @@ func (h *Handler) addHandler(handler interface{}, execOnce bool, middlewares ...
 		eventType = handlerType.Elem()
 	case reflect.Func:
 		// we expect two input params, first must be state
-		if handlerType.NumIn() != 2 || handlerType.In(0) != h.dstate.Type() {
+		if handlerType.NumIn() != 2 || handlerType.In(0) != h.rstate.Type() {
 			return nil, ErrInvalidHandler
 			// we expect either no return or an error return
 		} else if handlerType.NumOut() != 0 && (handlerType.NumOut() != 1 || handlerType.Out(0) != errorType) {
@@ -298,7 +298,7 @@ func (h *Handler) extractMiddlewares(raw []interface{}, eventType reflect.Type) 
 		}
 
 		// we expect two input params, first must be state
-		if mt.NumIn() != 2 || mt.In(0) != h.dstate.Type() {
+		if mt.NumIn() != 2 || mt.In(0) != h.rstate.Type() {
 			return nil, ErrInvalidMiddleware
 			// we expect either no return or an error return
 		} else if mt.NumOut() != 0 && (mt.NumOut() != 1 || mt.Out(0) != errorType) {
@@ -334,7 +334,7 @@ func (h *Handler) TryAddMiddleware(f interface{}) error {
 	ft := fv.Type()
 
 	// we expect two input params, first must be state
-	if ft.NumIn() != 2 || ft.In(0) != h.dstate.Type() {
+	if ft.NumIn() != 2 || ft.In(0) != h.rstate.Type() {
 		return ErrInvalidMiddleware
 		// we expect either no return or an error return
 	} else if ft.NumOut() != 0 && (ft.NumOut() != 1 || ft.Out(0) != errorType) {
@@ -364,7 +364,6 @@ func (h *Handler) Call(e interface{}) {
 	et := reflect.TypeOf(e)
 
 	abort := h.callGlobalMiddlewares(ev, et)
-	ev = ev.Elem() // from now functions only take elem
 	var direct bool
 
 	switch e := e.(type) {
@@ -396,8 +395,6 @@ func (h *Handler) Call(e interface{}) {
 }
 
 // call calls the handlers for the passed typed using the event wrapped in ev.
-// ev must not be a pointer, however, et is expected to be the pointerized type
-// of ev.
 //
 // direct specifies, whether interface and Base handlers should be called for
 // the event as well.
@@ -414,8 +411,6 @@ func (h *Handler) call(ev reflect.Value, et reflect.Type, direct bool) {
 }
 
 // callHandlers calls the passed slice of handlers using the passed event ev.
-// ev must not be a pointer, however, et is expected to be the pointerized type
-// of ev.
 func (h *Handler) callHandlers(ev reflect.Value, et reflect.Type, handlers []*handlerMeta) {
 	h.handlerWG.Add(len(handlers))
 
@@ -451,14 +446,13 @@ func (h *Handler) callHandler(gh *handlerMeta, ev reflect.Value) {
 	if gh.handler.Type().Kind() == reflect.Chan {
 		gh.handler.TrySend(ev)
 	} else {
-		result := gh.handler.Call([]reflect.Value{h.dstate, ev})
+		result := gh.handler.Call([]reflect.Value{h.rstate, ev})
 		h.handleResult(result)
 	}
 }
 
 // callGlobalMiddlewares calls the global middlewares using the passed event
 // ev.
-// ev must be a pointer to the event, and et must be ev's type.
 func (h *Handler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) bool {
 	h.mutex.RLock()
 
@@ -477,35 +471,49 @@ func (h *Handler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) bool 
 			index *int
 		)
 
+		// if there are interface middlewares left, use it to compare against
 		if im < len(interfaceMiddlewares) {
 			next = interfaceMiddlewares[im]
 			typ = et
 			index = &im
 		}
 
+		// if there are base middlewares and there is no interface middleware,
+		// or this middleware was added before the interface middleware,
+		// select it as next middleware
 		if bm < len(baseMiddlewares) && (index == nil || baseMiddlewares[bm].serial < next.serial) {
 			next = baseMiddlewares[bm]
 			typ = baseType
 			index = &bm
 		}
 
+		// if there are typed middlewares and there is no interface- and no
+		// base middleware or this middleware was added before both, select it
+		// as next middleware
 		if tm < len(typedMiddlewares) && (index == nil || typedMiddlewares[tm].serial < next.serial) {
 			next = typedMiddlewares[tm]
 			typ = et
 			index = &tm
 		}
 
+		// if we found no next middleware, i.e. we consumed all
 		if index == nil {
-			break // every middleware consumed
+			break
 		}
 
-		var in2 reflect.Value
+		// increase the index for the middleware slice we took our next
+		// middleware from
+		*index++
+		// and reset index for our next iteration
+		index = nil
+
+		var in1 reflect.Value
 
 		switch typ {
 		case et:
-			in2 = ev
+			in1 = ev
 		case baseType:
-			in2 = ev.Elem().FieldByName("Base")
+			in1 = ev.Elem().FieldByName("Base")
 		default:
 			continue // invalid, skip
 		}
@@ -523,7 +531,7 @@ func (h *Handler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) bool 
 				}
 			}()
 
-			result = next.middleware.Call([]reflect.Value{h.dstate, in2})
+			result = next.middleware.Call([]reflect.Value{h.rstate, in1})
 		}()
 
 		if didPanic {
@@ -533,34 +541,27 @@ func (h *Handler) callGlobalMiddlewares(ev reflect.Value, et reflect.Type) bool 
 		if h.handleResult(result) {
 			return true
 		}
-
-		*index++
 	}
 
 	return false
 }
 
 // callMiddlewares calls the passed slice of middlewares in the passed order.
-// ev must not be a pointer, however, et is expected to be the pointerized type
-// of ev.
 func (h *Handler) callMiddlewares(ev reflect.Value, et reflect.Type, middlewares []reflect.Value) bool {
-	for _, m := range middlewares {
-		var (
-			result []reflect.Value
-			base   reflect.Value
-		)
+	var base reflect.Value
 
-		switch m.Type() {
-		case interfaceType:
-			result = m.Call([]reflect.Value{h.dstate, ev})
+	for _, m := range middlewares {
+		var result []reflect.Value
+
+		switch m.Type().In(1) {
+		case interfaceType, et:
+			result = m.Call([]reflect.Value{h.rstate, ev})
 		case baseType:
 			if !base.IsValid() {
 				base = ev.Elem().FieldByName("Base")
 			}
 
-			result = m.Call([]reflect.Value{h.dstate, base})
-		case et:
-			result = m.Call([]reflect.Value{h.dstate, ev})
+			result = m.Call([]reflect.Value{h.rstate, base})
 		default: // skip invalid
 			continue
 		}
@@ -644,6 +645,8 @@ func (h *Handler) handleResult(res []reflect.Value) bool {
 // v must not be a pointer however, t is expected to be the pointerized type
 // of v.
 func copyEvent(v reflect.Value, t reflect.Type) reflect.Value {
+	v = v.Elem()
+
 	cp := reflect.New(t.Elem())
 	cp = cp.Elem()
 
