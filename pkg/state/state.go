@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"math"
 	"reflect"
 	"sort"
 	"sync"
@@ -311,8 +310,8 @@ func (s *State) GatewayFromGuildID(guildID discord.GuildID) *gateway.Gateway {
 	return s.GatewayFromShardID(int(uint64(guildID>>22) % uint64(s.numShards)))
 }
 
-// Apply applies the given function to all gateways handled by this Manager.
-func (s *State) Apply(f func(g *gateway.Gateway)) {
+// ApplyGateways applies the given function to all gateways handled by this Manager.
+func (s *State) ApplyGateways(f func(g *gateway.Gateway)) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -321,14 +320,16 @@ func (s *State) Apply(f func(g *gateway.Gateway)) {
 	}
 }
 
-// ApplyError is the same as Apply, but the iterator function returns an error.
-// If such an error occurs, the error will be returned wrapped in an *ShardError.
+// ApplyGatewaysError is the same as ApplyGateways, but the iterator function
+// returns an error.
+// If such an error occurs, the error will be returned wrapped in an
+// *ShardError.
 //
-// If all is set to true, ApplyError will apply the passed function to all
-// gateways, regardless of whether an error occurs.
+// If all is set to true, ApplyGatewaysError will apply the passed function to
+// all gateways, regardless of whether an error occurs.
 // If a single error occurs, it will be returned as an *ShardError, if multiple
 // errors occur then they will be returned as *MultiError.
-func (s *State) ApplyError(f func(g *gateway.Gateway) error, all bool) error {
+func (s *State) ApplyGatewaysError(f func(g *gateway.Gateway) error, all bool) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -373,7 +374,7 @@ func (s *State) Gateways() []*gateway.Gateway {
 // AddIntents adds the passed gateway.Intents to all gateways managed by the
 // Manager.
 func (s *State) AddIntents(i gateway.Intents) {
-	s.Apply(func(g *gateway.Gateway) { g.AddIntents(i) })
+	s.ApplyGateways(func(g *gateway.Gateway) { g.AddIntents(i) })
 }
 
 // Open opens all gateways handled by this Manager.
@@ -387,7 +388,7 @@ func (s *State) AddIntents(i gateway.Intents) {
 func (s *State) Open(ctx context.Context) error {
 	s.Handler.Open(s.Events)
 
-	err := s.ApplyError(func(g *gateway.Gateway) error { return g.Open(ctx) }, false)
+	err := s.ApplyGatewaysError(func(g *gateway.Gateway) error { return g.Open(ctx) }, false)
 	if err == nil {
 		return nil
 	}
@@ -430,7 +431,9 @@ func (s *State) CalcOpenTimeout(singleTimeout time.Duration) (d time.Duration) {
 	d += singleReservation.Delay()
 	singleReservation.Cancel()
 
-	qtyBursts := int(math.Ceil(float64(id.IdentifyShortLimit.Burst())))
+	qtyBursts := id.IdentifyShortLimit.Burst()
+
+	//nolint:durationcheck
 	d += time.Duration(qtyBursts) * time.Duration(1/id.IdentifyShortLimit.Limit()) * time.Second
 	d += time.Duration(len(s.gateways)) * singleTimeout
 
@@ -444,7 +447,7 @@ func (s *State) CalcOpenTimeout(singleTimeout time.Duration) (d time.Duration) {
 // MultiError will be returned.
 func (s *State) Close() error {
 	s.Handler.Close()
-	return s.ApplyError(func(g *gateway.Gateway) error { return g.Close() }, true)
+	return s.ApplyGatewaysError(func(g *gateway.Gateway) error { return g.Close() }, true)
 }
 
 // Pause pauses all gateways managed by this Manager.
@@ -453,7 +456,7 @@ func (s *State) Close() error {
 // first, before returning. If multiple errors occur during that process, a
 // MultiError will be returned.
 func (s *State) Pause() error {
-	return s.ApplyError(func(g *gateway.Gateway) error { return g.Pause() }, true)
+	return s.ApplyGatewaysError(func(g *gateway.Gateway) error { return g.Pause() }, true)
 }
 
 // UpdateStatus updates the status of all gateways handled by this Manager.
@@ -462,7 +465,7 @@ func (s *State) Pause() error {
 // remaining gateways first, before returning. If multiple errors occur during
 // that process, a MultiError will be returned.
 func (s *State) UpdateStatus(d gateway.UpdateStatusData) error {
-	return s.ApplyError(func(g *gateway.Gateway) error { return g.UpdateStatus(d) }, true)
+	return s.ApplyGatewaysError(func(g *gateway.Gateway) error { return g.UpdateStatus(d) }, true)
 }
 
 // RequestGuildMembers is used to request all members for a guild or a list of
