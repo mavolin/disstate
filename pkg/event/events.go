@@ -10,149 +10,136 @@ import (
 )
 
 var eventIntents = map[reflect.Type]gateway.Intents{
-	reflect.TypeOf(new(WebhooksUpdate)):             32,
-	reflect.TypeOf(new(ChannelDelete)):              1,
-	reflect.TypeOf(new(GuildIntegrationsUpdate)):    16,
-	reflect.TypeOf(new(GuildRoleCreate)):            1,
-	reflect.TypeOf(new(GuildRoleUpdate)):            1,
-	reflect.TypeOf(new(MessageUpdate)):              4608,
-	reflect.TypeOf(new(PresenceUpdate)):             256,
-	reflect.TypeOf(new(VoiceStateUpdate)):           128,
-	reflect.TypeOf(new(RelationshipAdd)):            0,
-	reflect.TypeOf(new(Hello)):                      0,
-	reflect.TypeOf(new(GuildCreate)):                1,
-	reflect.TypeOf(new(GuildUpdate)):                1,
-	reflect.TypeOf(new(GuildMemberListUpdate)):      0,
-	reflect.TypeOf(new(InviteCreate)):               64,
-	reflect.TypeOf(new(VoiceServerUpdate)):          0,
-	reflect.TypeOf(new(RelationshipRemove)):         0,
-	reflect.TypeOf(new(Resumed)):                    0,
-	reflect.TypeOf(new(ChannelPinsUpdate)):          4097,
-	reflect.TypeOf(new(GuildBanRemove)):             4,
-	reflect.TypeOf(new(ChannelUpdate)):              1,
-	reflect.TypeOf(new(GuildDelete)):                1,
-	reflect.TypeOf(new(GuildMembersChunk)):          0,
-	reflect.TypeOf(new(UserSettingsUpdate)):         0,
-	reflect.TypeOf(new(ChannelCreate)):              1,
-	reflect.TypeOf(new(ChannelUnreadUpdate)):        0,
-	reflect.TypeOf(new(GuildEmojisUpdate)):          8,
-	reflect.TypeOf(new(GuildRoleDelete)):            1,
-	reflect.TypeOf(new(MessageReactionRemoveAll)):   9216,
-	reflect.TypeOf(new(SessionsReplace)):            0,
-	reflect.TypeOf(new(TypingStart)):                18432,
-	reflect.TypeOf(new(UserUpdate)):                 0,
-	reflect.TypeOf(new(InvalidSession)):             0,
-	reflect.TypeOf(new(GuildBanAdd)):                4,
-	reflect.TypeOf(new(GuildMemberAdd)):             2,
-	reflect.TypeOf(new(MessageCreate)):              4608,
-	reflect.TypeOf(new(MessageReactionAdd)):         9216,
 	reflect.TypeOf(new(MessageReactionRemove)):      9216,
-	reflect.TypeOf(new(InteractionCreate)):          0,
-	reflect.TypeOf(new(UserGuildSettingsUpdate)):    0,
-	reflect.TypeOf(new(Ready)):                      0,
-	reflect.TypeOf(new(GuildMemberRemove)):          2,
+	reflect.TypeOf(new(InvalidSession)):             0,
+	reflect.TypeOf(new(ChannelCreate)):              1,
+	reflect.TypeOf(new(GuildBanAdd)):                4,
 	reflect.TypeOf(new(InviteDelete)):               64,
+	reflect.TypeOf(new(GuildMemberUpdate)):          2,
+	reflect.TypeOf(new(GuildRoleCreate)):            1,
 	reflect.TypeOf(new(MessageDelete)):              4608,
+	reflect.TypeOf(new(UserSettingsUpdate)):         0,
+	reflect.TypeOf(new(ChannelUpdate)):              1,
+	reflect.TypeOf(new(GuildBanRemove)):             4,
+	reflect.TypeOf(new(GuildEmojisUpdate)):          8,
+	reflect.TypeOf(new(GuildIntegrationsUpdate)):    16,
+	reflect.TypeOf(new(MessageReactionRemoveAll)):   9216,
+	reflect.TypeOf(new(RelationshipAdd)):            0,
+	reflect.TypeOf(new(RelationshipRemove)):         0,
+	reflect.TypeOf(new(Hello)):                      0,
+	reflect.TypeOf(new(ChannelDelete)):              1,
+	reflect.TypeOf(new(GuildDelete)):                1,
+	reflect.TypeOf(new(GuildRoleDelete)):            1,
+	reflect.TypeOf(new(SessionsReplace)):            0,
+	reflect.TypeOf(new(VoiceServerUpdate)):          0,
+	reflect.TypeOf(new(UserNoteUpdate)):             0,
+	reflect.TypeOf(new(ReadySupplemental)):          0,
+	reflect.TypeOf(new(GuildUpdate)):                1,
+	reflect.TypeOf(new(GuildMemberAdd)):             2,
+	reflect.TypeOf(new(GuildRoleUpdate)):            1,
+	reflect.TypeOf(new(GuildMemberRemove)):          2,
+	reflect.TypeOf(new(MessageUpdate)):              4608,
+	reflect.TypeOf(new(MessageAck)):                 0,
+	reflect.TypeOf(new(UserGuildSettingsUpdate)):    0,
+	reflect.TypeOf(new(ChannelPinsUpdate)):          4097,
+	reflect.TypeOf(new(MessageReactionAdd)):         9216,
+	reflect.TypeOf(new(PresencesReplace)):           0,
+	reflect.TypeOf(new(WebhooksUpdate)):             32,
+	reflect.TypeOf(new(Ready)):                      0,
+	reflect.TypeOf(new(InviteCreate)):               64,
+	reflect.TypeOf(new(InteractionCreate)):          0,
+	reflect.TypeOf(new(GuildMemberListUpdate)):      0,
+	reflect.TypeOf(new(MessageCreate)):              4608,
 	reflect.TypeOf(new(MessageDeleteBulk)):          512,
 	reflect.TypeOf(new(MessageReactionRemoveEmoji)): 9216,
-	reflect.TypeOf(new(PresencesReplace)):           0,
-	reflect.TypeOf(new(ApplicationCommandUpdate)):   0,
-	reflect.TypeOf(new(ReadySupplemental)):          0,
-	reflect.TypeOf(new(GuildMemberUpdate)):          2,
-	reflect.TypeOf(new(MessageAck)):                 0,
-	reflect.TypeOf(new(UserNoteUpdate)):             0,
+	reflect.TypeOf(new(Resumed)):                    0,
+	reflect.TypeOf(new(ChannelUnreadUpdate)):        0,
+	reflect.TypeOf(new(GuildCreate)):                1,
+	reflect.TypeOf(new(GuildMembersChunk)):          0,
+	reflect.TypeOf(new(PresenceUpdate)):             256,
+	reflect.TypeOf(new(TypingStart)):                18432,
+	reflect.TypeOf(new(VoiceStateUpdate)):           128,
+	reflect.TypeOf(new(UserUpdate)):                 0,
 }
 
 type (
-	WebhooksUpdate struct {
+	MessageReactionRemove struct {
 		*Base
-		*gateway.WebhooksUpdateEvent
+		*gateway.MessageReactionRemoveEvent
 	}
-	ChannelDelete struct {
+	InvalidSession struct {
 		*Base
-		*gateway.ChannelDeleteEvent
+		*gateway.InvalidSessionEvent
+	}
+	ChannelCreate struct {
+		*Base
+		*gateway.ChannelCreateEvent
+	}
+	GuildBanAdd struct {
+		*Base
+		*gateway.GuildBanAddEvent
+	}
+	InviteDelete struct {
+		*Base
+		*gateway.InviteDeleteEvent
+	}
+	GuildMemberUpdate struct {
+		*Base
+		*gateway.GuildMemberUpdateEvent
 
-		Old *discord.Channel
-	}
-	GuildIntegrationsUpdate struct {
-		*Base
-		*gateway.GuildIntegrationsUpdateEvent
+		Old *discord.Member
 	}
 	GuildRoleCreate struct {
 		*Base
 		*gateway.GuildRoleCreateEvent
 	}
-	GuildRoleUpdate struct {
+	MessageDelete struct {
 		*Base
-		*gateway.GuildRoleUpdateEvent
-
-		Old *discord.Role
-	}
-	MessageUpdate struct {
-		*Base
-		*gateway.MessageUpdateEvent
+		*gateway.MessageDeleteEvent
 
 		Old *discord.Message
 	}
-	PresenceUpdate struct {
+	UserSettingsUpdate struct {
 		*Base
-		*gateway.PresenceUpdateEvent
+		*gateway.UserSettingsUpdateEvent
+	}
+	ChannelUpdate struct {
+		*Base
+		*gateway.ChannelUpdateEvent
 
-		Old *discord.Presence
-	}
-	VoiceStateUpdate struct {
-		*Base
-		*gateway.VoiceStateUpdateEvent
-	}
-	RelationshipAdd struct {
-		*Base
-		*gateway.RelationshipAddEvent
-	}
-	Hello struct {
-		*Base
-		*gateway.HelloEvent
-	}
-	GuildCreate struct {
-		*Base
-		*gateway.GuildCreateEvent
-	}
-	GuildUpdate struct {
-		*Base
-		*gateway.GuildUpdateEvent
-
-		Old *discord.Guild
-	}
-	GuildMemberListUpdate struct {
-		*Base
-		*gateway.GuildMemberListUpdate
-	}
-	InviteCreate struct {
-		*Base
-		*gateway.InviteCreateEvent
-	}
-	VoiceServerUpdate struct {
-		*Base
-		*gateway.VoiceServerUpdateEvent
-	}
-	RelationshipRemove struct {
-		*Base
-		*gateway.RelationshipRemoveEvent
-	}
-	Resumed struct {
-		*Base
-		*gateway.ResumedEvent
-	}
-	ChannelPinsUpdate struct {
-		*Base
-		*gateway.ChannelPinsUpdateEvent
+		Old *discord.Channel
 	}
 	GuildBanRemove struct {
 		*Base
 		*gateway.GuildBanRemoveEvent
 	}
-	ChannelUpdate struct {
+	GuildEmojisUpdate struct {
 		*Base
-		*gateway.ChannelUpdateEvent
+		*gateway.GuildEmojisUpdateEvent
+	}
+	GuildIntegrationsUpdate struct {
+		*Base
+		*gateway.GuildIntegrationsUpdateEvent
+	}
+	MessageReactionRemoveAll struct {
+		*Base
+		*gateway.MessageReactionRemoveAllEvent
+	}
+	RelationshipAdd struct {
+		*Base
+		*gateway.RelationshipAddEvent
+	}
+	RelationshipRemove struct {
+		*Base
+		*gateway.RelationshipRemoveEvent
+	}
+	Hello struct {
+		*Base
+		*gateway.HelloEvent
+	}
+	ChannelDelete struct {
+		*Base
+		*gateway.ChannelDeleteEvent
 
 		Old *discord.Channel
 	}
@@ -162,83 +149,43 @@ type (
 
 		Old *discord.Guild
 	}
-	GuildMembersChunk struct {
-		*Base
-		*gateway.GuildMembersChunkEvent
-	}
-	UserSettingsUpdate struct {
-		*Base
-		*gateway.UserSettingsUpdateEvent
-	}
-	ChannelCreate struct {
-		*Base
-		*gateway.ChannelCreateEvent
-	}
-	ChannelUnreadUpdate struct {
-		*Base
-		*gateway.ChannelUnreadUpdateEvent
-	}
-	GuildEmojisUpdate struct {
-		*Base
-		*gateway.GuildEmojisUpdateEvent
-	}
 	GuildRoleDelete struct {
 		*Base
 		*gateway.GuildRoleDeleteEvent
 
 		Old *discord.Role
 	}
-	MessageReactionRemoveAll struct {
-		*Base
-		*gateway.MessageReactionRemoveAllEvent
-	}
 	SessionsReplace struct {
 		*Base
 		*gateway.SessionsReplaceEvent
 	}
-	TypingStart struct {
+	VoiceServerUpdate struct {
 		*Base
-		*gateway.TypingStartEvent
+		*gateway.VoiceServerUpdateEvent
 	}
-	UserUpdate struct {
+	UserNoteUpdate struct {
 		*Base
-		*gateway.UserUpdateEvent
+		*gateway.UserNoteUpdateEvent
 	}
-	InvalidSession struct {
+	ReadySupplemental struct {
 		*Base
-		*gateway.InvalidSessionEvent
+		*gateway.ReadySupplementalEvent
 	}
-	GuildBanAdd struct {
+	GuildUpdate struct {
 		*Base
-		*gateway.GuildBanAddEvent
+		*gateway.GuildUpdateEvent
+
+		Old *discord.Guild
 	}
 	GuildMemberAdd struct {
 		*Base
 		*gateway.GuildMemberAddEvent
 	}
-	MessageCreate struct {
+	GuildRoleUpdate struct {
 		*Base
-		*gateway.MessageCreateEvent
-	}
-	MessageReactionAdd struct {
-		*Base
-		*gateway.MessageReactionAddEvent
-	}
-	MessageReactionRemove struct {
-		*Base
-		*gateway.MessageReactionRemoveEvent
-	}
-	InteractionCreate struct {
-		*Base
-		*gateway.InteractionCreateEvent
-	}
-	UserGuildSettingsUpdate struct {
-		*Base
-		*gateway.UserGuildSettingsUpdateEvent
-	}
-	Ready struct {
-		*Base
-		*gateway.ReadyEvent
+		*gateway.GuildRoleUpdateEvent
+
+		Old *discord.Role
 	}
 	GuildMemberRemove struct {
 		*Base
@@ -246,15 +193,55 @@ type (
 
 		Old *discord.Member
 	}
-	InviteDelete struct {
+	MessageUpdate struct {
 		*Base
-		*gateway.InviteDeleteEvent
-	}
-	MessageDelete struct {
-		*Base
-		*gateway.MessageDeleteEvent
+		*gateway.MessageUpdateEvent
 
 		Old *discord.Message
+	}
+	MessageAck struct {
+		*Base
+		*gateway.MessageAckEvent
+	}
+	UserGuildSettingsUpdate struct {
+		*Base
+		*gateway.UserGuildSettingsUpdateEvent
+	}
+	ChannelPinsUpdate struct {
+		*Base
+		*gateway.ChannelPinsUpdateEvent
+	}
+	MessageReactionAdd struct {
+		*Base
+		*gateway.MessageReactionAddEvent
+	}
+	PresencesReplace struct {
+		*Base
+		*gateway.PresencesReplaceEvent
+	}
+	WebhooksUpdate struct {
+		*Base
+		*gateway.WebhooksUpdateEvent
+	}
+	Ready struct {
+		*Base
+		*gateway.ReadyEvent
+	}
+	InviteCreate struct {
+		*Base
+		*gateway.InviteCreateEvent
+	}
+	InteractionCreate struct {
+		*Base
+		*gateway.InteractionCreateEvent
+	}
+	GuildMemberListUpdate struct {
+		*Base
+		*gateway.GuildMemberListUpdate
+	}
+	MessageCreate struct {
+		*Base
+		*gateway.MessageCreateEvent
 	}
 	MessageDeleteBulk struct {
 		*Base
@@ -264,30 +251,38 @@ type (
 		*Base
 		*gateway.MessageReactionRemoveEmojiEvent
 	}
-	PresencesReplace struct {
+	Resumed struct {
 		*Base
-		*gateway.PresencesReplaceEvent
+		*gateway.ResumedEvent
 	}
-	ApplicationCommandUpdate struct {
+	ChannelUnreadUpdate struct {
 		*Base
-		*gateway.ApplicationCommandUpdateEvent
+		*gateway.ChannelUnreadUpdateEvent
 	}
-	ReadySupplemental struct {
+	GuildCreate struct {
 		*Base
-		*gateway.ReadySupplementalEvent
+		*gateway.GuildCreateEvent
 	}
-	GuildMemberUpdate struct {
+	GuildMembersChunk struct {
 		*Base
-		*gateway.GuildMemberUpdateEvent
+		*gateway.GuildMembersChunkEvent
+	}
+	PresenceUpdate struct {
+		*Base
+		*gateway.PresenceUpdateEvent
 
-		Old *discord.Member
+		Old *discord.Presence
 	}
-	MessageAck struct {
+	TypingStart struct {
 		*Base
-		*gateway.MessageAckEvent
+		*gateway.TypingStartEvent
 	}
-	UserNoteUpdate struct {
+	VoiceStateUpdate struct {
 		*Base
-		*gateway.UserNoteUpdateEvent
+		*gateway.VoiceStateUpdateEvent
+	}
+	UserUpdate struct {
+		*Base
+		*gateway.UserUpdateEvent
 	}
 )

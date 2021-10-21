@@ -12,7 +12,7 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 {{- range .}}
     case *gateway.{{.GatewayName}}:
     {{- if .Old}}
-        old, _ := h.astate.Cabinet.{{.Old.CabinetFuncName}}(
+        old, _ := h.state.Cabinet.{{.Old.CabinetFuncName}}(
             {{- range $i, $e := .Old.CabinetFuncParams}}
                 {{- if gt $i 0}}
                     {{- print ", "}}

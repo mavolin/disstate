@@ -9,116 +9,102 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 	base := NewBase()
 
 	switch src := src.(type) {
-	case *gateway.WebhooksUpdateEvent:
-		return &WebhooksUpdate{
+	case *gateway.MessageReactionRemoveEvent:
+		return &MessageReactionRemove{
+			Base:                       base,
+			MessageReactionRemoveEvent: src,
+		}
+	case *gateway.InvalidSessionEvent:
+		return &InvalidSession{
 			Base:                base,
-			WebhooksUpdateEvent: src,
+			InvalidSessionEvent: src,
 		}
-	case *gateway.ChannelDeleteEvent:
-		old, _ := h.state.Cabinet.Channel(src.ID)
-		return &ChannelDelete{
+	case *gateway.ChannelCreateEvent:
+		return &ChannelCreate{
 			Base:               base,
-			ChannelDeleteEvent: src,
-			Old:                old,
+			ChannelCreateEvent: src,
 		}
-	case *gateway.GuildIntegrationsUpdateEvent:
-		return &GuildIntegrationsUpdate{
-			Base:                         base,
-			GuildIntegrationsUpdateEvent: src,
+	case *gateway.GuildBanAddEvent:
+		return &GuildBanAdd{
+			Base:             base,
+			GuildBanAddEvent: src,
+		}
+	case *gateway.InviteDeleteEvent:
+		return &InviteDelete{
+			Base:              base,
+			InviteDeleteEvent: src,
+		}
+	case *gateway.GuildMemberUpdateEvent:
+		old, _ := h.state.Cabinet.Member(src.GuildID, src.User.ID)
+		return &GuildMemberUpdate{
+			Base:                   base,
+			GuildMemberUpdateEvent: src,
+			Old:                    old,
 		}
 	case *gateway.GuildRoleCreateEvent:
 		return &GuildRoleCreate{
 			Base:                 base,
 			GuildRoleCreateEvent: src,
 		}
-	case *gateway.GuildRoleUpdateEvent:
-		old, _ := h.state.Cabinet.Role(src.GuildID, src.Role.ID)
-		return &GuildRoleUpdate{
-			Base:                 base,
-			GuildRoleUpdateEvent: src,
-			Old:                  old,
-		}
-	case *gateway.MessageUpdateEvent:
+	case *gateway.MessageDeleteEvent:
 		old, _ := h.state.Cabinet.Message(src.ChannelID, src.ID)
-		return &MessageUpdate{
+		return &MessageDelete{
 			Base:               base,
-			MessageUpdateEvent: src,
+			MessageDeleteEvent: src,
 			Old:                old,
 		}
-	case *gateway.PresenceUpdateEvent:
-		old, _ := h.state.Cabinet.Presence(src.GuildID, src.User.ID)
-		return &PresenceUpdate{
-			Base:                base,
-			PresenceUpdateEvent: src,
-			Old:                 old,
-		}
-	case *gateway.VoiceStateUpdateEvent:
-		return &VoiceStateUpdate{
-			Base:                  base,
-			VoiceStateUpdateEvent: src,
-		}
-	case *gateway.RelationshipAddEvent:
-		return &RelationshipAdd{
-			Base:                 base,
-			RelationshipAddEvent: src,
-		}
-	case *gateway.HelloEvent:
-		return &Hello{
-			Base:       base,
-			HelloEvent: src,
-		}
-	case *gateway.GuildCreateEvent:
-		return &GuildCreate{
-			Base:             base,
-			GuildCreateEvent: src,
-		}
-	case *gateway.GuildUpdateEvent:
-		old, _ := h.state.Cabinet.Guild(src.ID)
-		return &GuildUpdate{
-			Base:             base,
-			GuildUpdateEvent: src,
-			Old:              old,
-		}
-	case *gateway.GuildMemberListUpdate:
-		return &GuildMemberListUpdate{
-			Base:                  base,
-			GuildMemberListUpdate: src,
-		}
-	case *gateway.InviteCreateEvent:
-		return &InviteCreate{
-			Base:              base,
-			InviteCreateEvent: src,
-		}
-	case *gateway.VoiceServerUpdateEvent:
-		return &VoiceServerUpdate{
-			Base:                   base,
-			VoiceServerUpdateEvent: src,
-		}
-	case *gateway.RelationshipRemoveEvent:
-		return &RelationshipRemove{
+	case *gateway.UserSettingsUpdateEvent:
+		return &UserSettingsUpdate{
 			Base:                    base,
-			RelationshipRemoveEvent: src,
-		}
-	case *gateway.ResumedEvent:
-		return &Resumed{
-			Base:         base,
-			ResumedEvent: src,
-		}
-	case *gateway.ChannelPinsUpdateEvent:
-		return &ChannelPinsUpdate{
-			Base:                   base,
-			ChannelPinsUpdateEvent: src,
-		}
-	case *gateway.GuildBanRemoveEvent:
-		return &GuildBanRemove{
-			Base:                base,
-			GuildBanRemoveEvent: src,
+			UserSettingsUpdateEvent: src,
 		}
 	case *gateway.ChannelUpdateEvent:
 		old, _ := h.state.Cabinet.Channel(src.ID)
 		return &ChannelUpdate{
 			Base:               base,
 			ChannelUpdateEvent: src,
+			Old:                old,
+		}
+	case *gateway.GuildBanRemoveEvent:
+		return &GuildBanRemove{
+			Base:                base,
+			GuildBanRemoveEvent: src,
+		}
+	case *gateway.GuildEmojisUpdateEvent:
+		return &GuildEmojisUpdate{
+			Base:                   base,
+			GuildEmojisUpdateEvent: src,
+		}
+	case *gateway.GuildIntegrationsUpdateEvent:
+		return &GuildIntegrationsUpdate{
+			Base:                         base,
+			GuildIntegrationsUpdateEvent: src,
+		}
+	case *gateway.MessageReactionRemoveAllEvent:
+		return &MessageReactionRemoveAll{
+			Base:                          base,
+			MessageReactionRemoveAllEvent: src,
+		}
+	case *gateway.RelationshipAddEvent:
+		return &RelationshipAdd{
+			Base:                 base,
+			RelationshipAddEvent: src,
+		}
+	case *gateway.RelationshipRemoveEvent:
+		return &RelationshipRemove{
+			Base:                    base,
+			RelationshipRemoveEvent: src,
+		}
+	case *gateway.HelloEvent:
+		return &Hello{
+			Base:       base,
+			HelloEvent: src,
+		}
+	case *gateway.ChannelDeleteEvent:
+		old, _ := h.state.Cabinet.Channel(src.ID)
+		return &ChannelDelete{
+			Base:               base,
+			ChannelDeleteEvent: src,
 			Old:                old,
 		}
 	case *gateway.GuildDeleteEvent:
@@ -128,31 +114,6 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildDeleteEvent: src,
 			Old:              old,
 		}
-	case *gateway.GuildMembersChunkEvent:
-		return &GuildMembersChunk{
-			Base:                   base,
-			GuildMembersChunkEvent: src,
-		}
-	case *gateway.UserSettingsUpdateEvent:
-		return &UserSettingsUpdate{
-			Base:                    base,
-			UserSettingsUpdateEvent: src,
-		}
-	case *gateway.ChannelCreateEvent:
-		return &ChannelCreate{
-			Base:               base,
-			ChannelCreateEvent: src,
-		}
-	case *gateway.ChannelUnreadUpdateEvent:
-		return &ChannelUnreadUpdate{
-			Base:                     base,
-			ChannelUnreadUpdateEvent: src,
-		}
-	case *gateway.GuildEmojisUpdateEvent:
-		return &GuildEmojisUpdate{
-			Base:                   base,
-			GuildEmojisUpdateEvent: src,
-		}
 	case *gateway.GuildRoleDeleteEvent:
 		old, _ := h.state.Cabinet.Role(src.GuildID, src.RoleID)
 		return &GuildRoleDelete{
@@ -160,70 +121,44 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildRoleDeleteEvent: src,
 			Old:                  old,
 		}
-	case *gateway.MessageReactionRemoveAllEvent:
-		return &MessageReactionRemoveAll{
-			Base:                          base,
-			MessageReactionRemoveAllEvent: src,
-		}
 	case *gateway.SessionsReplaceEvent:
 		return &SessionsReplace{
 			Base:                 base,
 			SessionsReplaceEvent: src,
 		}
-	case *gateway.TypingStartEvent:
-		return &TypingStart{
-			Base:             base,
-			TypingStartEvent: src,
+	case *gateway.VoiceServerUpdateEvent:
+		return &VoiceServerUpdate{
+			Base:                   base,
+			VoiceServerUpdateEvent: src,
 		}
-	case *gateway.UserUpdateEvent:
-		return &UserUpdate{
-			Base:            base,
-			UserUpdateEvent: src,
-		}
-	case *gateway.InvalidSessionEvent:
-		return &InvalidSession{
+	case *gateway.UserNoteUpdateEvent:
+		return &UserNoteUpdate{
 			Base:                base,
-			InvalidSessionEvent: src,
+			UserNoteUpdateEvent: src,
 		}
-	case *gateway.GuildBanAddEvent:
-		return &GuildBanAdd{
+	case *gateway.ReadySupplementalEvent:
+		return &ReadySupplemental{
+			Base:                   base,
+			ReadySupplementalEvent: src,
+		}
+	case *gateway.GuildUpdateEvent:
+		old, _ := h.state.Cabinet.Guild(src.ID)
+		return &GuildUpdate{
 			Base:             base,
-			GuildBanAddEvent: src,
+			GuildUpdateEvent: src,
+			Old:              old,
 		}
 	case *gateway.GuildMemberAddEvent:
 		return &GuildMemberAdd{
 			Base:                base,
 			GuildMemberAddEvent: src,
 		}
-	case *gateway.MessageCreateEvent:
-		return &MessageCreate{
-			Base:               base,
-			MessageCreateEvent: src,
-		}
-	case *gateway.MessageReactionAddEvent:
-		return &MessageReactionAdd{
-			Base:                    base,
-			MessageReactionAddEvent: src,
-		}
-	case *gateway.MessageReactionRemoveEvent:
-		return &MessageReactionRemove{
-			Base:                       base,
-			MessageReactionRemoveEvent: src,
-		}
-	case *gateway.InteractionCreateEvent:
-		return &InteractionCreate{
-			Base:                   base,
-			InteractionCreateEvent: src,
-		}
-	case *gateway.UserGuildSettingsUpdateEvent:
-		return &UserGuildSettingsUpdate{
-			Base:                         base,
-			UserGuildSettingsUpdateEvent: src,
-		}
-	case *gateway.ReadyEvent:
-		return &Ready{
-			Base:       base,
-			ReadyEvent: src,
+	case *gateway.GuildRoleUpdateEvent:
+		old, _ := h.state.Cabinet.Role(src.GuildID, src.Role.ID)
+		return &GuildRoleUpdate{
+			Base:                 base,
+			GuildRoleUpdateEvent: src,
+			Old:                  old,
 		}
 	case *gateway.GuildMemberRemoveEvent:
 		old, _ := h.state.Cabinet.Member(src.GuildID, src.User.ID)
@@ -232,17 +167,67 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			GuildMemberRemoveEvent: src,
 			Old:                    old,
 		}
-	case *gateway.InviteDeleteEvent:
-		return &InviteDelete{
-			Base:              base,
-			InviteDeleteEvent: src,
-		}
-	case *gateway.MessageDeleteEvent:
+	case *gateway.MessageUpdateEvent:
 		old, _ := h.state.Cabinet.Message(src.ChannelID, src.ID)
-		return &MessageDelete{
+		return &MessageUpdate{
 			Base:               base,
-			MessageDeleteEvent: src,
+			MessageUpdateEvent: src,
 			Old:                old,
+		}
+	case *gateway.MessageAckEvent:
+		return &MessageAck{
+			Base:            base,
+			MessageAckEvent: src,
+		}
+	case *gateway.UserGuildSettingsUpdateEvent:
+		return &UserGuildSettingsUpdate{
+			Base:                         base,
+			UserGuildSettingsUpdateEvent: src,
+		}
+	case *gateway.ChannelPinsUpdateEvent:
+		return &ChannelPinsUpdate{
+			Base:                   base,
+			ChannelPinsUpdateEvent: src,
+		}
+	case *gateway.MessageReactionAddEvent:
+		return &MessageReactionAdd{
+			Base:                    base,
+			MessageReactionAddEvent: src,
+		}
+	case *gateway.PresencesReplaceEvent:
+		return &PresencesReplace{
+			Base:                  base,
+			PresencesReplaceEvent: src,
+		}
+	case *gateway.WebhooksUpdateEvent:
+		return &WebhooksUpdate{
+			Base:                base,
+			WebhooksUpdateEvent: src,
+		}
+	case *gateway.ReadyEvent:
+		return &Ready{
+			Base:       base,
+			ReadyEvent: src,
+		}
+	case *gateway.InviteCreateEvent:
+		return &InviteCreate{
+			Base:              base,
+			InviteCreateEvent: src,
+		}
+	case *gateway.InteractionCreateEvent:
+		return &InteractionCreate{
+			Base:                   base,
+			InteractionCreateEvent: src,
+		}
+	case *gateway.GuildMemberListUpdate:
+		return &GuildMemberListUpdate{
+			Base:                  base,
+			GuildMemberListUpdate: src,
+		}
+	case *gateway.MessageCreateEvent:
+		return &MessageCreate{
+			Base:               base,
+			MessageCreateEvent: src,
 		}
 	case *gateway.MessageDeleteBulkEvent:
 		return &MessageDeleteBulk{
@@ -254,37 +239,47 @@ func (h *Handler) generateEvent(src interface{}) interface{} {
 			Base:                            base,
 			MessageReactionRemoveEmojiEvent: src,
 		}
-	case *gateway.PresencesReplaceEvent:
-		return &PresencesReplace{
-			Base:                  base,
-			PresencesReplaceEvent: src,
+	case *gateway.ResumedEvent:
+		return &Resumed{
+			Base:         base,
+			ResumedEvent: src,
 		}
-	case *gateway.ApplicationCommandUpdateEvent:
-		return &ApplicationCommandUpdate{
-			Base:                          base,
-			ApplicationCommandUpdateEvent: src,
+	case *gateway.ChannelUnreadUpdateEvent:
+		return &ChannelUnreadUpdate{
+			Base:                     base,
+			ChannelUnreadUpdateEvent: src,
 		}
-	case *gateway.ReadySupplementalEvent:
-		return &ReadySupplemental{
+	case *gateway.GuildCreateEvent:
+		return &GuildCreate{
+			Base:             base,
+			GuildCreateEvent: src,
+		}
+	case *gateway.GuildMembersChunkEvent:
+		return &GuildMembersChunk{
 			Base:                   base,
-			ReadySupplementalEvent: src,
+			GuildMembersChunkEvent: src,
 		}
-	case *gateway.GuildMemberUpdateEvent:
-		old, _ := h.state.Cabinet.Member(src.GuildID, src.User.ID)
-		return &GuildMemberUpdate{
-			Base:                   base,
-			GuildMemberUpdateEvent: src,
-			Old:                    old,
-		}
-	case *gateway.MessageAckEvent:
-		return &MessageAck{
-			Base:            base,
-			MessageAckEvent: src,
-		}
-	case *gateway.UserNoteUpdateEvent:
-		return &UserNoteUpdate{
+	case *gateway.PresenceUpdateEvent:
+		old, _ := h.state.Cabinet.Presence(src.GuildID, src.User.ID)
+		return &PresenceUpdate{
 			Base:                base,
-			UserNoteUpdateEvent: src,
+			PresenceUpdateEvent: src,
+			Old:                 old,
+		}
+	case *gateway.TypingStartEvent:
+		return &TypingStart{
+			Base:             base,
+			TypingStartEvent: src,
+		}
+	case *gateway.VoiceStateUpdateEvent:
+		return &VoiceStateUpdate{
+			Base:                  base,
+			VoiceStateUpdateEvent: src,
+		}
+	case *gateway.UserUpdateEvent:
+		return &UserUpdate{
+			Base:            base,
+			UserUpdateEvent: src,
 		}
 	default:
 		return nil
