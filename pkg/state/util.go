@@ -21,17 +21,17 @@ func generateShardIDs(total int) []int {
 type ShardError struct {
 	// ShardID is the id of the shard that returned the error.
 	ShardID int
-	// Source is the error itself.
-	Source error
+	// Err is the error itself.
+	Err error
 }
 
 func (err *ShardError) Unwrap() error {
-	return err.Source
+	return err.Err
 }
 
 func (err *ShardError) Error() string {
 	return fmt.Sprintf("the gateway with the shard id %d returned an error: %s",
-		err.ShardID, err.Source)
+		err.ShardID, err.Err)
 }
 
 // MultiError combines multiple errors in a slice.

@@ -1,6 +1,7 @@
 package event
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"sync"
@@ -125,13 +126,27 @@ func (h *Handler) Open(events <-chan interface{}) {
 
 // Close signals the event listener to stop and blocks until all handlers
 // have finished their execution.
-func (h *Handler) Close() {
+//
+// If the context expires before all handlers finished executing, Close will
+// simply return.
+// Running handlers will not be stopped.
+func (h *Handler) Close(ctx context.Context) error {
 	if h.closer != nil {
 		close(h.closer)
 		h.closer = nil
 
-		h.handlerWG.Wait()
+		done := make(chan struct{}, 1)
+		go h.handlerWG.Wait()
+
+		select {
+		case <-done:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
+
+	return nil
 }
 
 // DeriveIntents derives the intents based on the event handlers and global

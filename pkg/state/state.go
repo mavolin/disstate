@@ -2,8 +2,6 @@ package state
 
 import (
 	"context"
-	"errors"
-	"log"
 	"reflect"
 	"sort"
 	"sync"
@@ -15,10 +13,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/state"
-	"github.com/diamondburned/arikawa/v3/state/store"
-	"github.com/diamondburned/arikawa/v3/state/store/defaultstore"
 	"github.com/diamondburned/arikawa/v3/utils/handler"
-	"github.com/diamondburned/arikawa/v3/utils/httputil"
 
 	"github.com/mavolin/disstate/v4/pkg/event"
 )
@@ -46,169 +41,6 @@ type State struct {
 
 	rescale     func(func(Options) (*State, error))
 	rescaleExec *uint32
-}
-
-// Options are the options used to create a State.
-// All options except Token are optional.
-type Options struct {
-	// Token is the bot's token.
-	// It mustn't be prefixed with "Bot ".
-	Token string
-	// Status is the status of the bot.
-	//
-	// Default: gateway.OnlineStatus
-	Status discord.Status
-	// Activity is the activity of the bot.
-	//
-	// To set this to nil when calling update during rescale, set this to an
-	// empty activity.
-	//
-	// Default: nil
-	Activity *discord.Activity
-
-	// Cabinet is the store's cabinet.
-	//
-	// Default: defaultstore.New()
-	Cabinet *store.Cabinet
-
-	// TotalShards is the total number of shards.
-	// If it is <= 0, the recommended number of shards will be used.
-	TotalShards int
-	// ShardIDs are the shard ids this State instance will use.
-	//
-	// If setting this, you also need to specify the TotalShards.
-	//
-	// Default: 0..TotalShards
-	ShardIDs []int
-
-	// Gateways are the initial gateways to use.
-	// It is an alternative to TotalShards, and ShardIDs and you shouldn't set
-	// both.
-	Gateways []*gateway.Gateway
-
-	// HTTPClient is the http client that will be used to make requests.
-	//
-	// Default: httputil.NewClient()
-	HTTPClient *httputil.Client
-
-	// Rescale is the function called, if Discord closes any of the gateways
-	// with a 4011 close code aka. 'Sharding Required'.
-	//
-	// Usage
-	//
-	// To update the state's shard manager, you must call update.
-	// All zero-value options in the Options you give to update, will be set to
-	// the options you used when initially creating the state.
-	// This does not apply to TotalShards, ShardIDs, and Gateways, which will
-	// assume the defaults described in their respective documentation.
-	// Furthermore, setting ErrorHandler or PanicHandler will have no effect.
-	//
-	// After calling update, you should reopen the state, by calling Open.
-	// Alternatively, you can call open individually for State.Gateways().
-	// Note, however, that you should call Sate.Handler.Open(State.Events) once
-	// before calling Gateway.Open, should you choose to open individually.
-	//
-	// During update, the state's State field will be replaced, as well as the
-	// gateways and the rescale function. The event handler will remain
-	// untouched which is why you don't need to readd your handlers.
-	//
-	// Default
-	//
-	// If you set neither TotalShards nor Gateways, this will default to the
-	// below unless you define a custom Rescale function.
-	//
-	// 	func(update func(Options) *State) {
-	//		s, err := update(Options{})
-	//		if err != nil {
-	//			log.Println("could not update state during rescale:", err.Error())
-	//			return
-	//		}
-	//
-	//		err = s.Open(context.Background())
-	//		if err != nil {
-	//			log.Println("could not open state during rescale:", err.Error())
-	//		}
-	//	}
-	//
-	// Otherwise, you are required to set this function yourself.
-	Rescale func(update func(Options) (*State, error))
-
-	// ErrorHandler is the error handler of the event handler.
-	//
-	// Default
-	//
-	//	func(err error) {
-	//		log.Println("event handler:", err.Error())
-	//	}
-	ErrorHandler func(error)
-	// PanicHandler is the panic handler of the event handler
-	//
-	// Default
-	//
-	//	func(rec interface{}) {
-	//		log.Printf("event handler: panic: %s\n", rec)
-	//	}
-	PanicHandler func(rec interface{})
-}
-
-func (o *Options) setDefaults() error {
-	if o.Token == "" {
-		return errors.New("state: Options.Token may not be empty")
-	}
-
-	o.Token = "Bot " + o.Token
-
-	if o.Status == "" {
-		o.Status = discord.OnlineStatus
-	}
-
-	if o.Cabinet == nil {
-		o.Cabinet = defaultstore.New()
-	}
-
-	if len(o.ShardIDs) > 0 && o.TotalShards <= 0 {
-		return errors.New("state: setting Options.ShardIDs requires Options.TotalShards to be set as well")
-	}
-
-	if o.TotalShards > 0 && o.Rescale == nil {
-		return errors.New("state: setting Options.TotalShards requires Options.Rescale to be set as well")
-	}
-
-	if o.TotalShards <= 0 && o.Rescale == nil && len(o.Gateways) == 0 {
-		o.Rescale = func(update func(Options) (*State, error)) {
-			s, err := update(Options{})
-			if err != nil {
-				log.Println("could not update state during rescale:", err.Error())
-				return
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), s.CalcOpenTimeout(2*time.Second))
-			defer cancel()
-
-			if err = s.Open(ctx); err != nil {
-				log.Println("could not open state during rescale:", err.Error())
-				return
-			}
-		}
-	}
-
-	if o.HTTPClient == nil {
-		o.HTTPClient = httputil.NewClient()
-	}
-
-	if o.ErrorHandler == nil {
-		o.ErrorHandler = func(err error) {
-			log.Println("event handler:", err.Error())
-		}
-	}
-
-	if o.PanicHandler == nil {
-		o.PanicHandler = func(rec interface{}) {
-			log.Printf("event handler: panic: %s\n", rec)
-		}
-	}
-
-	return nil
 }
 
 // New creates a new *State using as many gateways as recommended by Discord.
@@ -327,8 +159,8 @@ func (s *State) ApplyGateways(f func(g *gateway.Gateway)) {
 //
 // If all is set to true, ApplyGatewaysError will apply the passed function to
 // all gateways, regardless of whether an error occurs.
-// If a single error occurs, it will be returned as an *ShardError, if multiple
-// errors occur then they will be returned as *MultiError.
+// If a single error occurs, it will be returned as a *ShardError, if multiple
+// errors occur then they will be returned as a MultiError.
 func (s *State) ApplyGatewaysError(f func(g *gateway.Gateway) error, all bool) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -339,7 +171,7 @@ func (s *State) ApplyGatewaysError(f func(g *gateway.Gateway) error, all bool) e
 		if err := f(g); err != nil {
 			wrapperErr := &ShardError{
 				ShardID: shardID(g),
-				Source:  err,
+				Err:     err,
 			}
 
 			if !all {
@@ -360,7 +192,7 @@ func (s *State) ApplyGatewaysError(f func(g *gateway.Gateway) error, all bool) e
 	}
 }
 
-// Gateways returns the gateways managed by this Manager.
+// Gateways returns a copy of the gateways currently managed by the State.
 func (s *State) Gateways() []*gateway.Gateway {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -381,14 +213,26 @@ func (s *State) AddIntents(i gateway.Intents) {
 // If an error occurs, Open will attempt to close all previously opened
 // gateways before returning.
 //
-// When using timeouts for the passed context, keep in mind that there are rate
-// limit between each gateway's call to open.
-// State.CalcOpenTimeout can be used to calculate timeouts that take into
-// account rate limits between each call.
-func (s *State) Open(ctx context.Context) error {
+// Instead of accepting a context.Context like gateway.Gateway.Open does, Open
+// accepts raw timeout.
+// This is to account for time needed because of rate limiting.
+// Taking in a time.Duration allows to specify the timeout per open directly,
+// instead of requiring any calculations.
+// If you require cancellation, consider implementing Open yourself.
+//
+// Note that to each timeout, the short identify limit, i.e. the rate limit
+// between subsequent calls to Open, will be added.
+func (s *State) Open(timeout time.Duration) error {
 	s.Handler.Open(s.Events)
 
-	err := s.ApplyGatewaysError(func(g *gateway.Gateway) error { return g.Open(ctx) }, false)
+	timeout += time.Duration(1/s.Identifier.IdentifyShortLimit.Limit()) * time.Second
+
+	err := s.ApplyGatewaysError(func(g *gateway.Gateway) error {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		return g.Open(ctx)
+	}, false)
 	if err == nil {
 		return nil
 	}
@@ -411,42 +255,19 @@ func (s *State) Open(ctx context.Context) error {
 	return errs
 }
 
-// CalcOpenTimeout returns the time.Duration it would need to open all of the
-// state's gateways if each individual call to gateway.Gateway.Open is allowed
-// to take singleTimeout long.
-//
-// It takes into account both the global aka. 24h rate limit as well as the
-// limit between each call to open.
-// It requires that the full global burst is enough to open all sessions, so
-// that if the current global burst is insufficient, waiting for the next burst
-// will allow all calls to open to be executed.
-func (s *State) CalcOpenTimeout(singleTimeout time.Duration) (d time.Duration) {
-	id := s.gateways[0].Identifier
-
-	globalReservation := id.IdentifyGlobalLimit.ReserveN(time.Now(), len(s.gateways))
-	d += globalReservation.Delay()
-	globalReservation.Cancel()
-
-	singleReservation := id.IdentifyShortLimit.Reserve()
-	d += singleReservation.Delay()
-	singleReservation.Cancel()
-
-	qtyBursts := id.IdentifyShortLimit.Burst()
-
-	//nolint:durationcheck
-	d += time.Duration(qtyBursts) * time.Duration(1/id.IdentifyShortLimit.Limit()) * time.Second
-	d += time.Duration(len(s.gateways)) * singleTimeout
-
-	return d
-}
-
 // Close closes all gateways handled by this Manager.
 //
 // If an error occurs, Close will attempt to close all remaining gateways
 // first, before returning. If multiple errors occur during that process, a
 // MultiError will be returned.
-func (s *State) Close() error {
-	s.Handler.Close()
+//
+// The passed context will only be checked while waiting for all event handlers
+// to finish.
+// Even if the context expires, Close guarantees that all gateways are closed,
+// except if errors occurred.
+func (s *State) Close(ctx context.Context) error {
+	_ = s.Handler.Close(ctx) // only ctx.Err()
+
 	return s.ApplyGatewaysError(func(g *gateway.Gateway) error { return g.Close() }, true)
 }
 
@@ -504,7 +325,10 @@ func (s *State) onShardingRequired() {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		_ = s.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		_ = s.Close(ctx)
 
 		*s.rescaleExec = 0
 
