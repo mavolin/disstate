@@ -640,7 +640,7 @@ func (h *Handler) handleGuildDelete(e *GuildDelete) interface{} {
 
 // handleResult handles the passed result of a handler func.
 func (h *Handler) handleResult(res []reflect.Value) bool {
-	if len(res) == 0 {
+	if len(res) == 0 || res[0].Interface() == nil {
 		return false
 	}
 
