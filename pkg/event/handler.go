@@ -136,7 +136,10 @@ func (h *Handler) Close(ctx context.Context) error {
 		h.closer = nil
 
 		done := make(chan struct{}, 1)
-		go h.handlerWG.Wait()
+		go func() {
+			h.handlerWG.Wait()
+			done <- struct{}{}
+		}()
 
 		select {
 		case <-done:
